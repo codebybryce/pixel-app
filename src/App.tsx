@@ -859,25 +859,6 @@ if created:
   }
 
   // Load project from a File object
-  function loadProjectFile(file: File | null) {
-    if (!file) {
-      toast.error('No file selected')
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => {
-      try {
-        const txt = String(reader.result ?? '')
-        const parsed = JSON.parse(txt)
-        if (parsed.plot) setPlot(parsed.plot)
-        if (typeof parsed.voxelSizeMm === 'number') setVoxelSizeMm(parsed.voxelSizeMm)
-        toast.success('Project loaded')
-      } catch (e) {
-        toast.error('Failed to parse project file')
-      }
-    }
-    reader.readAsText(file)
-  }
 
   // Export PNG image of the plot (scale pxPerCell)
   function exportPNG() {
