@@ -261,7 +261,8 @@ input {
   right: 0;
   top: 0;
   align-items: center;
-  height: 65px
+  height: 65px;
+
 }
 
 .color-levels-panel {
@@ -271,7 +272,7 @@ input {
   border: 1px solid #23272e;
   margin: 16px auto;
   max-width: 320px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .color-levels-panel h3 {
@@ -299,4 +300,59 @@ input {
   font-size: 12px;
   color: #ccc;
   min-width: 48px;
+}
+
+.menu-item {
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s, color 0.2s;
+  position: relative;
+
+
+}
+
+.menu-item-content {
+    position: absolute;
+    background: hsl(225deg 14.29% 10.98% / 83.92%);
+    border: 1px solid #23272e;
+    border-radius: 6px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
+    margin-top: 6px;
+    z-index: 400;
+    width: max-content;
+
+}
+
+li{
+    list-style: none;
+    cursor: pointer;
+}
+
+.menu-item:hover {
+  background: #23272e;
+  color: #ffb300;
+}
+
+.menu-stack{
+  position: relative;
+}
+
+.sub-menu {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 8px;
+    background: hsl(225deg 14.29% 10.98% / 83.92%);
+    border: 1px solid #23272e;
+    border-radius: 6px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.14);
+    padding: 10px;
+    z-index: 400;
+}
+
+.menu-bar button{
+  background-color: transparent
 }

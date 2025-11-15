@@ -26,3 +26,4 @@ export const HELP_MENU = [
     'Documentation',
     'About',
 ]   
+

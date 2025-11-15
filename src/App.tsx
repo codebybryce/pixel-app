@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import "./App.css"
+import { useEffect } from 'react';
+import "./App.css";
 import { IoIosColorPalette } from "react-icons/io";
 import { MdClear } from "react-icons/md";
 import { ToastContainer, toast } from 'react-toastify';
@@ -9,29 +9,53 @@ import { BsEraserFill } from "react-icons/bs";
 import { FaCode, FaDownload, FaPencilAlt, FaFillDrip, FaSlash, FaRegCircle, FaEyeDropper, FaUndo, FaRedo } from "react-icons/fa";
 import ToolBar from './components/ToolBar';
 import MenuBar from './components/MenuBar';
-type Tool = 'pencil' | 'fill' | 'eraser' | 'line' | 'circle' | 'picker'
-
-
+import { useGlobalStore } from "./store/useGlobalStore";
+// import type { Tool } from "./store/useGlobalStore";
 
 function App() {
-  const [size, _setSize] = useState<number>(2)
-  const [currColor, setCurrColor] = useState<string>("")
-  const [currentPixel, setCurrentPixel] = useState<{ x: number; y: number } | undefined>()
-  const [plot, setPlot] = useState<string[][] | undefined>(undefined)
-  const [colorMenuOpen, setColorMenuOpen] = useState<boolean>(false)
-  const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
-  const [showToolCursor, setShowToolCursor] = useState<boolean>(false)
+  // Frame management
+  const frames = useGlobalStore((s) => s.frames);
+  const currentFrame = useGlobalStore((s) => s.currentFrame);
+  const addFrame = useGlobalStore((s) => s.addFrame);
+  const setCurrentFrame = useGlobalStore((s) => s.setCurrentFrame);
+  const setSize = useGlobalStore((s) => s.setSize);
+  const size = useGlobalStore((s) => s.size);
+  // const setSize = useGlobalStore((s) => s.setSize); // Remove if unused
+  const currColor = useGlobalStore((s) => s.currColor);
+  const setCurrColor = useGlobalStore((s) => s.setCurrColor);
+  const currentPixel = useGlobalStore((s) => s.currentPixel);
+  const setCurrentPixel = useGlobalStore((s) => s.setCurrentPixel);
+  const plot = useGlobalStore((s) => s.frames[s.currentFrame]);
+  const setPlot = useGlobalStore((s) => s.setPlot);
+  const colorMenuOpen = useGlobalStore((s) => s.colorMenuOpen);
+  const setColorMenuOpen = useGlobalStore((s) => s.setColorMenuOpen);
+  const mousePos = useGlobalStore((s) => s.mousePos);
+  const setMousePos = useGlobalStore((s) => s.setMousePos);
+  const showToolCursor = useGlobalStore((s) => s.showToolCursor);
+  const setShowToolCursor = useGlobalStore((s) => s.setShowToolCursor);
+  const shiftButtonEngaged = useGlobalStore((s) => s.shiftButtonEngaged);
+  const setShiftButtonEngaged = useGlobalStore((s) => s.setShiftButtonEngaged);
+  const pixelMultiplier = useGlobalStore((s) => s.pixelMultiplier);
+  // const setPixelMultiplier = useGlobalStore((s) => s.setPixelMultiplier); // Remove if unused
+  const voxelSizeMm = useGlobalStore((s) => s.voxelSizeMm);
+  const setVoxelSizeMm = useGlobalStore((s) => s.setVoxelSizeMm);
+  const tool = useGlobalStore((s) => s.tool);
+  const setTool = useGlobalStore((s) => s.setTool);
+  const toolStart = useGlobalStore((s) => s.toolStart);
+  const setToolStart = useGlobalStore((s) => s.setToolStart);
+  const previewPixels = useGlobalStore((s) => s.previewPixels);
+  const setPreviewPixels = useGlobalStore((s) => s.setPreviewPixels);
+  const undoStack = useGlobalStore((s) => s.undoStack);
+  const setUndoStack = useGlobalStore((s) => s.setUndoStack);
+  const redoStack = useGlobalStore((s) => s.redoStack);
+  const setRedoStack = useGlobalStore((s) => s.setRedoStack);
+  useEffect(() => {
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape')
+        setTool('pencil');
+    });
 
-  const [shiftButtonEngaged, setShiftButtonEngaged] = useState<boolean>(false)
-
-  const [pixelMultiplier, _setPixelMultiplier] = useState(10)
-  const [voxelSizeMm, setVoxelSizeMm] = useState<number>(2)
-  const [tool, setTool] = useState<Tool>('pencil')
-  const [toolStart, setToolStart] = useState<{ x: number; y: number } | null>(null)
-  const [previewPixels, setPreviewPixels] = useState<{ x: number; y: number }[]>([])
-  const [undoStack, setUndoStack] = useState<string[][][]>([])
-  const [redoStack, setRedoStack] = useState<string[][][]>([])
-
+  }, [])
   // Handle mouse movement
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -62,9 +86,10 @@ function App() {
 
 
   function handleClear() {
-    let dsMap: string[][] = Array.from({ length: multiplier(size, pixelMultiplier) }, () => Array.from({ length: multiplier(size, 10) }, () => "transparent"));
-    setPlot(dsMap)
-    toast.success("Board cleared")
+    // Clear the current board using the current size (pixel count)
+    const dsMap: string[][] = Array.from({ length: size }, () => Array.from({ length: size }, () => "transparent"));
+    setPlot(dsMap);
+    toast.success("Board cleared");
   }
   function floodFill(startX: number, startY: number, color?: string) {
     const fillColor = color ?? currColor
@@ -77,28 +102,27 @@ function App() {
     if (targetColor === fillColor) return
 
     // Use functional set to avoid mutating current state
-    setPlot(prev => {
-      if (!prev) return prev
-      const r = prev.length
-      const c = prev[0]?.length ?? 0
-      const newPlot = prev.map(row => row.slice())
+    interface FloodFillStackItem {
+      x: number;
+      y: number;
+    }
 
-      const stack: { x: number; y: number }[] = [{ x: startX, y: startY }]
-      while (stack.length) {
-        const { x, y } = stack.pop()!
-        if (x < 0 || x >= r || y < 0 || y >= c) continue
-        if (newPlot[x][y] !== targetColor) continue
-
-        newPlot[x][y] = fillColor
-
-        stack.push({ x: x + 1, y })
-        stack.push({ x: x - 1, y })
-        stack.push({ x, y: y + 1 })
-        stack.push({ x, y: y - 1 })
-      }
-
-      return newPlot
-    })
+    if (!plot) return;
+    const r = plot.length;
+    const c = plot[0]?.length ?? 0;
+    const newPlot: string[][] = plot.map(row => row.slice());
+    const stack: FloodFillStackItem[] = [{ x: startX, y: startY }];
+    while (stack.length) {
+      const { x, y } = stack.pop() as FloodFillStackItem;
+      if (x < 0 || x >= r || y < 0 || y >= c) continue;
+      if (newPlot[x][y] !== targetColor) continue;
+      newPlot[x][y] = fillColor;
+      stack.push({ x: x + 1, y });
+      stack.push({ x: x - 1, y });
+      stack.push({ x, y: y + 1 });
+      stack.push({ x, y: y - 1 });
+    }
+    setPlot(newPlot);
 
     toast.success('Fill applied')
   }
@@ -156,39 +180,37 @@ function App() {
 
 
   function pushUndo() {
-    if (plot) setUndoStack(stack => [...stack, plot.map(row => [...row])]);
+    if (plot) setUndoStack([...undoStack, plot.map(row => [...row])]);
     setRedoStack([]);
   }
 
   function undo() {
     if (undoStack.length === 0) return;
-    setRedoStack(stack => [plot!.map(row => [...row]), ...stack]);
+    setRedoStack([plot!.map(row => [...row]), ...redoStack]);
     setPlot(undoStack[undoStack.length - 1]);
-    setUndoStack(stack => stack.slice(0, -1));
+    setUndoStack(undoStack.slice(0, -1));
     setPreviewPixels([]);
     setToolStart(null);
   }
 
   function redo() {
     if (redoStack.length === 0) return;
-    setUndoStack(stack => [...stack, plot!.map(row => [...row])]);
+    setUndoStack([...undoStack, plot!.map(row => [...row])]);
     setPlot(redoStack[0]);
-    setRedoStack(stack => stack.slice(1));
+    setRedoStack(redoStack.slice(1));
     setPreviewPixels([]);
     setToolStart(null);
   }
 
   function setPixelAt(params: { x: number; y: number }, color: string) {
     pushUndo();
-    setCurrentPixel(params)
-    setPlot(prev => {
-      if (!prev) return prev
-      const newPlot = prev.map(row => row.slice())
-      if (newPlot[params.x] && typeof newPlot[params.x][params.y] !== 'undefined') {
-        newPlot[params.x][params.y] = color
-      }
-      return newPlot
-    })
+    setCurrentPixel(params);
+    if (!plot) return;
+    const newPlot = plot.map(row => row.slice());
+    if (newPlot[params.x] && typeof newPlot[params.x][params.y] !== 'undefined') {
+      newPlot[params.x][params.y] = color;
+    }
+    setPlot(newPlot);
   }
 
   function handleSetPixel(params: { x: number; y: number }) {
@@ -288,14 +310,12 @@ function App() {
       if (e2 > -dy) { err -= dy; x0 += sx }
       if (e2 < dx) { err += dx; y0 += sy }
     }
-    setPlot(prev => {
-      if (!prev) return prev
-      const newPlot = prev.map(row => row.slice())
-      points.forEach(p => {
-        if (newPlot[p.x] && typeof newPlot[p.x][p.y] !== 'undefined') newPlot[p.x][p.y] = color
-      })
-      return newPlot
-    })
+    if (!plot) return;
+    const newPlot = plot.map(row => row.slice());
+    points.forEach(p => {
+      if (newPlot[p.x] && typeof newPlot[p.x][p.y] !== 'undefined') newPlot[p.x][p.y] = color;
+    });
+    setPlot(newPlot);
   }
 
   // Draw filled circle (raster) centered at a with radius determined by distance to b
@@ -310,21 +330,19 @@ function App() {
     const imax = Math.ceil(center.x + maxR)
     const jmin = Math.floor(center.y - maxR)
     const jmax = Math.ceil(center.y + maxR)
-    setPlot(prev => {
-      if (!prev) return prev
-      const newPlot = prev.map(row => row.slice())
-      for (let i = imin; i <= imax; i++) {
-        for (let j = jmin; j <= jmax; j++) {
-          const ddx = i - center.x
-          const ddy = j - center.y
-          const dist = Math.sqrt(ddx * ddx + ddy * ddy)
-          if (dist >= minR && dist <= maxR) {
-            if (newPlot[i] && typeof newPlot[i][j] !== 'undefined') newPlot[i][j] = color
-          }
+    if (!plot) return;
+    const newPlot = plot.map(row => row.slice());
+    for (let i = imin; i <= imax; i++) {
+      for (let j = jmin; j <= jmax; j++) {
+        const ddx = i - center.x;
+        const ddy = j - center.y;
+        const dist = Math.sqrt(ddx * ddx + ddy * ddy);
+        if (dist >= minR && dist <= maxR) {
+          if (newPlot[i] && typeof newPlot[i][j] !== 'undefined') newPlot[i][j] = color;
         }
       }
-      return newPlot
-    })
+    }
+    setPlot(newPlot);
   }
 
   function handleMouseEnterPixel(params: { x: number; y: number }) {
@@ -347,67 +365,67 @@ function App() {
     })
   }
 
-function generateBlenderScript() {
-  if (!plot) return null;
+  function generateBlenderScript() {
+    if (!plot) return null;
 
-  // --- Helpers ---
-  function cssToRGBA(color: string): [number, number, number, number] {
-    try {
-      const cvs = document.createElement('canvas');
-      cvs.width = cvs.height = 1;
-      const ctx = cvs.getContext('2d');
-      if (!ctx) return [0, 0, 0, 0];
-      ctx.clearRect(0, 0, 1, 1);
-      ctx.fillStyle = color;
-      ctx.fillRect(0, 0, 1, 1);
-      const d = ctx.getImageData(0, 0, 1, 1).data;
-      return [d[0] / 255, d[1] / 255, d[2] / 255, d[3] / 255];
-    } catch {
-      return [0, 0, 0, 1];
+    // --- Helpers ---
+    function cssToRGBA(color: string): [number, number, number, number] {
+      try {
+        const cvs = document.createElement('canvas');
+        cvs.width = cvs.height = 1;
+        const ctx = cvs.getContext('2d');
+        if (!ctx) return [0, 0, 0, 0];
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillStyle = color;
+        ctx.fillRect(0, 0, 1, 1);
+        const d = ctx.getImageData(0, 0, 1, 1).data;
+        return [d[0] / 255, d[1] / 255, d[2] / 255, d[3] / 255];
+      } catch {
+        return [0, 0, 0, 1];
+      }
     }
-  }
-  const escapeSingle = (s: string) => s.replace(/'/g, "\\'");
+    const escapeSingle = (s: string) => s.replace(/'/g, "\\'");
 
-  // Treat low-alpha as transparent (your grid init uses low-alpha HSL)
-  const TRANSPARENCY_THRESHOLD = 0.18;
-  const isTransparent = (c: string) => {
-    if (!c) return true;
-    if (c === 'transparent') return true;
-    const [, , , a] = cssToRGBA(c);
-    return a <= TRANSPARENCY_THRESHOLD;
-  };
+    // Treat low-alpha as transparent (your grid init uses low-alpha HSL)
+    const TRANSPARENCY_THRESHOLD = 0.18;
+    const isTransparent = (c: string) => {
+      if (!c) return true;
+      if (c === 'transparent') return true;
+      const [, , , a] = cssToRGBA(c);
+      return a <= TRANSPARENCY_THRESHOLD;
+    };
 
-  // Normalize plot
-  const processedPlot = plot.map(row => row.map(c => (isTransparent(c) ? 'transparent' : c)));
-  const inUse = Array.from(new Set(processedPlot.flat())).filter(c => c !== 'transparent');
+    // Normalize plot
+    const processedPlot = plot.map(row => row.map(c => (isTransparent(c) ? 'transparent' : c)));
+    const inUse = Array.from(new Set(processedPlot.flat())).filter(c => c !== 'transparent');
 
-  // ---- Choose stack order (BOTTOM -> TOP) ----
-  // Edit this to enforce your desired order (e.g., black, then white, then red):
-  const printOrder: string[] = ['#000000', '#FFFFFF', '#FF0000']; // <-- customize
-  // Keep colors not listed in printOrder in their first-seen order:
-  const missing = inUse.filter(c => !printOrder.includes(c));
-  const orderedColors = [...printOrder.filter(c => inUse.includes(c)), ...missing];
+    // ---- Choose stack order (BOTTOM -> TOP) ----
+    // Edit this to enforce your desired order (e.g., black, then white, then red):
+    const printOrder: string[] = ['#000000', '#FFFFFF', '#FF0000']; // <-- customize
+    // Keep colors not listed in printOrder in their first-seen order:
+    const missing = inUse.filter(c => !printOrder.includes(c));
+    const orderedColors = [...printOrder.filter(c => inUse.includes(c)), ...missing];
 
-  // Map each color to a height index (0-based)
-  const colorIndices: Record<string, number> = {};
-  orderedColors.forEach((c, idx) => (colorIndices[c] = idx));
+    // Map each color to a height index (0-based)
+    const colorIndices: Record<string, number> = {};
+    orderedColors.forEach((c, idx) => (colorIndices[c] = idx));
 
-  // Python materials block
-  let materialsBlock = '';
-  orderedColors.forEach(color => {
-    const [r, g, b, a] = cssToRGBA(color);
-    const esc = escapeSingle(color);
-    materialsBlock += `materials['${esc}'] = bpy.data.materials.new(name='${esc}')\n`;
-    materialsBlock += `materials['${esc}'].use_nodes = True\n`;
-    materialsBlock += `bsdf = materials['${esc}'].node_tree.nodes.get('Principled BSDF')\n`;
-    materialsBlock += `if bsdf is not None:\n    bsdf.inputs[0].default_value = (${r.toFixed(3)}, ${g.toFixed(3)}, ${b.toFixed(3)}, ${a.toFixed(3)})\n`;
-  });
+    // Python materials block
+    let materialsBlock = '';
+    orderedColors.forEach(color => {
+      const [r, g, b, a] = cssToRGBA(color);
+      const esc = escapeSingle(color);
+      materialsBlock += `materials['${esc}'] = bpy.data.materials.new(name='${esc}')\n`;
+      materialsBlock += `materials['${esc}'].use_nodes = True\n`;
+      materialsBlock += `bsdf = materials['${esc}'].node_tree.nodes.get('Principled BSDF')\n`;
+      materialsBlock += `if bsdf is not None:\n    bsdf.inputs[0].default_value = (${r.toFixed(3)}, ${g.toFixed(3)}, ${b.toFixed(3)}, ${a.toFixed(3)})\n`;
+    });
 
-  const pyPlot = JSON.stringify(processedPlot);
-  const pyIndices = JSON.stringify(colorIndices);
-  const layerThickness = Number((voxelSizeMm / 10).toFixed(6)); // mm -> meters
+    const pyPlot = JSON.stringify(processedPlot);
+    const pyIndices = JSON.stringify(colorIndices);
+    const layerThickness = Number((voxelSizeMm / 10).toFixed(6)); // mm -> meters
 
-  const blenderScript = `# Blender Python script generated by pixel-app
+    const blenderScript = `# Blender Python script generated by pixel-app
 # Paste into Blender's Text Editor and Run
 
 import bpy
@@ -476,8 +494,8 @@ if created:
     union_obj.location.z = 0.4
 `;
 
-  return blenderScript;
-}
+    return blenderScript;
+  }
 
 
 
@@ -638,37 +656,72 @@ if created:
 
   return (
     <div className="App">
-      
+
       <ToastContainer />
       <header>
+
         <MenuBar menu={menu} />
+
       </header>
       {/* <div className='mini-plot'>
         {plot?.map((val: string[], i: number) => {
           return <div key={i}>{val.map((v: string, j: number) => <div onClick={() => handleSetPixel({ x: i, y: j })} className="pixel" key={j} style={{ backgroundColor: v, width: 1, height: 1 }} />)}</div>
         })}
       </div> */}
-      <div style={{marginTop: '80px'}}>
-      <div className='plot' onMouseEnter={() => setShowToolCursor(true)} onMouseLeave={() => setShowToolCursor(false)}>
-        {plot?.map((val: string[], i: number) => {
-          return <div key={i}>{val.map((v: string, j: number) => {
-            const isPreview = previewPixels.some(p => p.x === i && p.y === j)
-            return (
-              <div
-                onMouseEnter={() => { handleMouseEnterPixel({ x: i, y: j }); if (toolStart && (tool === 'line' || tool === 'circle')) handlePreview({ x: i, y: j }) }}
-                onMouseLeave={handleMouseLeavePixel}
-                onClick={() => handleSetPixel({ x: i, y: j })}
-                className={`pixel${isPreview ? ' preview' : ''}`}
-                key={j}
-                style={{ backgroundColor: isPreview ? currColor : v, opacity: isPreview ? 0.5 : 1, width: 20, height: 20 }} />
-            )
-          })}</div>
-        })}
+      <div style={{ marginTop: '80px' }}>
+        {/* Frame controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, justifyContent: 'center' }}>
+          <span style={{ fontWeight: 500 }}>Frame:</span>
+          {frames.map((_, idx) => (
+            <button
+              key={idx}
+              style={{
+                background: idx === currentFrame ? '#ffb300' : '#23272e',
+                color: idx === currentFrame ? '#23272e' : '#f5f5f7',
+                border: '1px solid #444',
+                borderRadius: 4,
+                padding: '2px 10px',
+                marginRight: 4,
+                cursor: 'pointer',
+                fontWeight: idx === currentFrame ? 700 : 400
+              }}
+              onClick={() => setCurrentFrame(idx)}
+            >{idx + 1}</button>
+          ))}
+          <button
+            style={{ background: '#23272e', color: '#ffb300', border: '1px dashed #ffb300', borderRadius: 4, padding: '2px 10px', cursor: 'pointer', fontWeight: 700 }}
+            onClick={addFrame}
+          >+ Add Frame</button>
+          <span style={{ marginLeft: 24, fontWeight: 500 }}>Pixel Count:</span>
+          <input
+            type="number"
+            min={2}
+            max={64}
+            value={size}
+            onChange={e => setSize(Number(e.target.value))}
+            style={{ width: 60, background: '#23272e', color: '#f5f5f7', border: '1px solid #444', borderRadius: 4, padding: '2px 6px', fontSize: 15, marginLeft: 4 }}
+          />
+        </div>
+        <div className='plot' onMouseEnter={() => setShowToolCursor(true)} onMouseLeave={() => setShowToolCursor(false)}>
+          {plot?.map((val: string[], i: number) => {
+            return <div key={i}>{val.map((v: string, j: number) => {
+              const isPreview = previewPixels.some(p => p.x === i && p.y === j)
+              return (
+                <div
+                  onMouseEnter={() => { handleMouseEnterPixel({ x: i, y: j }); if (toolStart && (tool === 'line' || tool === 'circle')) handlePreview({ x: i, y: j }) }}
+                  onMouseLeave={handleMouseLeavePixel}
+                  onClick={() => handleSetPixel({ x: i, y: j })}
+                  className={`pixel${isPreview ? ' preview' : ''}`}
+                  key={j}
+                  style={{ backgroundColor: isPreview ? currColor : v, opacity: isPreview ? 0.5 : 1, width: 20, height: 20 }} />
+              )
+            })}</div>
+          })}
+        </div>
       </div>
-      </div>
-      <div className="plot">
+      {/* <div className="plot">
         <input type="text" />
-      </div>
+      </div> */}
       {showToolCursor && <div
         id="cursor"
         className={tool}
@@ -683,7 +736,24 @@ if created:
         }}
       />}
       <div id="picker" className='color'></div>
-  <ToolBar setColorMenuOpen={setColorMenuOpen} colorMenuOpen={colorMenuOpen} colors={colors} currColor={currColor} handleClear={handleClear} fillFromCurrentPixel={fillFromCurrentPixel} handleErasePixel={handleErasePixel} setCurrColor={setCurrColor} getCode={getCode} downloadScript={downloadScript} voxelSizeMm={voxelSizeMm} setVoxelSizeMm={setVoxelSizeMm} tool={tool} setTool={setTool} saveProject={saveProject} loadProject={loadProjectFile} exportPNG={exportPNG} undo={undo} redo={redo} />
+      <ToolBar
+        setColorMenuOpen={setColorMenuOpen}
+        colorMenuOpen={colorMenuOpen}
+        colors={colors} currColor={currColor}
+        handleClear={handleClear} fillFromCurrentPixel={fillFromCurrentPixel}
+        handleErasePixel={handleErasePixel}
+        setCurrColor={setCurrColor}
+        getCode={getCode}
+        downloadScript={downloadScript}
+        voxelSizeMm={voxelSizeMm}
+        setVoxelSizeMm={setVoxelSizeMm}
+        tool={tool}
+        setTool={setTool}
+        saveProject={saveProject}
+        loadProject={loadProjectFile}
+        exportPNG={exportPNG}
+        undo={undo}
+        redo={redo} />
     </div>
 
 
