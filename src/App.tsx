@@ -1,26 +1,28 @@
-import { useEffect } from 'react';
-import "./App.css";
-import { IoIosColorPalette } from "react-icons/io";
-import { MdClear } from "react-icons/md";
+import { useEffect, useState } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
-import { MdFormatColorFill } from "react-icons/md";
-import { Circle } from '@uiw/react-color';
-import { BsEraserFill } from "react-icons/bs";
-import { FaCode, FaDownload, FaPencilAlt, FaFillDrip, FaSlash, FaRegCircle, FaEyeDropper, FaUndo, FaRedo } from "react-icons/fa";
+import 'react-toastify/dist/ReactToastify.css';
+import './toast-theme.css';
+import "./App.css";
 import ToolBar from './components/ToolBar';
+import ColorModal from './components/ColorModal';
 import MenuBar from './components/MenuBar';
 import { useGlobalStore } from "./store/useGlobalStore";
 // import type { Tool } from "./store/useGlobalStore";
 
 function App() {
-  // Frame management
+  // Cell size state for zoom (optional, default 20)
+  const [cellSize, setCellSize] = useState<number>(20);
+  // Dummy state to force re-render
+  const [, forceUpdate] = useState(0);
+
+  // All state selectors (declare only once, at the top)
   const frames = useGlobalStore((s) => s.frames);
   const currentFrame = useGlobalStore((s) => s.currentFrame);
   const addFrame = useGlobalStore((s) => s.addFrame);
+  const removeFrame = useGlobalStore((s) => s.removeFrame);
   const setCurrentFrame = useGlobalStore((s) => s.setCurrentFrame);
   const setSize = useGlobalStore((s) => s.setSize);
   const size = useGlobalStore((s) => s.size);
-  // const setSize = useGlobalStore((s) => s.setSize); // Remove if unused
   const currColor = useGlobalStore((s) => s.currColor);
   const setCurrColor = useGlobalStore((s) => s.setCurrColor);
   const currentPixel = useGlobalStore((s) => s.currentPixel);
@@ -35,8 +37,7 @@ function App() {
   const setShowToolCursor = useGlobalStore((s) => s.setShowToolCursor);
   const shiftButtonEngaged = useGlobalStore((s) => s.shiftButtonEngaged);
   const setShiftButtonEngaged = useGlobalStore((s) => s.setShiftButtonEngaged);
-  const pixelMultiplier = useGlobalStore((s) => s.pixelMultiplier);
-  // const setPixelMultiplier = useGlobalStore((s) => s.setPixelMultiplier); // Remove if unused
+  // ...existing code...
   const voxelSizeMm = useGlobalStore((s) => s.voxelSizeMm);
   const setVoxelSizeMm = useGlobalStore((s) => s.setVoxelSizeMm);
   const tool = useGlobalStore((s) => s.tool);
@@ -49,13 +50,93 @@ function App() {
   const setUndoStack = useGlobalStore((s) => s.setUndoStack);
   const redoStack = useGlobalStore((s) => s.redoStack);
   const setRedoStack = useGlobalStore((s) => s.setRedoStack);
-  useEffect(() => {
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape')
-        setTool('pencil');
-    });
 
-  }, [])
+  // MenuBar event handler
+  useEffect(() => {
+    function handleMenuBarAction(e: Event) {
+      const custom = e as CustomEvent;
+      const action = custom.detail?.action;
+      switch (action) {
+        case 'clear':
+          handleClear(); break;
+        case 'undo':
+          undo(); break;
+        case 'redo':
+          redo(); break;
+        case 'save':
+          saveProject('save'); break;
+        case 'saveAs':
+          saveProject('saveAs'); break;
+        case 'open':
+          // Trigger file input for load
+          document.getElementById('file-load-input')?.click();
+          break;
+        case 'export':
+          exportPNG(); break;
+        case 'cut':
+          copyToClipboard();
+          handleClear();
+          break;
+        case 'copy':
+          copyToClipboard();
+          break;
+        case 'paste':
+          pasteFromClipboard();
+          break;
+        case 'zoomIn':
+          setCellSize((s: number) => Math.min(s + 2, 60));
+          break;
+        case 'zoomOut':
+          setCellSize((s: number) => Math.max(s - 2, 6));
+          break;
+        case 'resetZoom':
+          setCellSize(20);
+          break;
+        default:
+          break;
+      }
+    }
+    window.addEventListener('pixel-app-action', handleMenuBarAction);
+    return () => window.removeEventListener('pixel-app-action', handleMenuBarAction);
+  }, [plot, size]);
+
+  // Clipboard helpers
+  function copyToClipboard() {
+    if (!plot) return;
+    navigator.clipboard.writeText(JSON.stringify(plot));
+    toast.success('Copied to clipboard');
+  }
+  function pasteFromClipboard() {
+    navigator.clipboard.readText().then(txt => {
+      try {
+        const arr = JSON.parse(txt);
+        if (Array.isArray(arr) && Array.isArray(arr[0])) {
+          setPlot(arr);
+          toast.success('Pasted from clipboard');
+        }
+      } catch { toast.error('Clipboard data invalid'); }
+    });
+  }
+  useEffect(() => {
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        // Cancel all current actions, but only reset tool if not in a shape tool
+        setToolStart(null);
+        setPreviewPixels([]);
+        setCurrentPixel(undefined);
+        setColorMenuOpen(false);
+        if (tool !== 'line' && tool !== 'circle' && tool !== 'rectangle') {
+          setTool('pencil');
+        }
+        // Close MenuBar if open
+        window.dispatchEvent(new Event('pixel-app-close-menu'));
+        // Force re-render to ensure ToolBar updates
+        forceUpdate(n => n + 1);
+      }
+    }
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [tool]);
   // Handle mouse movement
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -148,23 +229,104 @@ function App() {
   // Added more colors for a richer palette
   // Basic + extended web colors + some nice extras
   let colors: string[] = [
-    '#000000', '#222222', '#444444', '#666666', '#888888', '#AAAAAA', '#CCCCCC', '#EEEEEE', '#FFFFFF',
-    '#FF0000', '#FF7F00', '#FFFF00', '#7FFF00', '#00FF00', '#00FF7F', '#00FFFF', '#007FFF', '#0000FF', '#7F00FF', '#FF00FF',
-    '#FFC0CB', '#FF69B4', '#FF1493', '#C71585', '#8B008B', // pinks/magentas
-    '#8B4513', '#A0522D', '#D2691E', '#FFD700', '#FFA500', // browns/oranges/yellow
-    '#00CED1', '#20B2AA', '#008080', '#4682B4', '#1E90FF', // teals/blues
-    '#B22222', '#DC143C', '#800000', '#A52A2A', // reds/browns
-    '#228B22', '#006400', '#32CD32', '#ADFF2F', // greens
-    '#F5F5DC', '#FFF8DC', '#F0E68C', '#E6E6FA', // light/neutral
-    '#F0FFFF', '#F5FFFA', '#FFE4E1', '#FAEBD7', // pastel/white variants
-    '#808000', '#BDB76B', '#DAA520', '#D2B48C', // olives/tans
-    '#2F4F4F', '#708090', '#778899', '#B0C4DE', // grays/blues
-    '#191970', '#00008B', '#000080', '#483D8B', // dark blues
-    '#9400D3', '#8A2BE2', '#9932CC', '#BA55D3', // violets
-    '#FF4500', '#FF6347', '#FF8C00', '#FFDAB9', // oranges/peach
-    '#7CFC00', '#00FA9A', '#40E0D0', '#48D1CC', // greens/teals
-    '#C0C0C0', '#D3D3D3', '#A9A9A9', // silvers/grays
-  ]
+    // Pantone-inspired swatch book: vibrant, pastel, and neutral
+    // Vibrant primaries
+    '#F44336', // Pantone Red
+    '#E91E63', // Pantone Pink
+    '#9C27B0', // Pantone Purple
+    '#673AB7', // Pantone Violet
+    '#3F51B5', // Pantone Blue
+    '#2196F3', // Pantone Sky Blue
+    '#03A9F4', // Pantone Light Blue
+    '#00BCD4', // Pantone Cyan
+    '#009688', // Pantone Teal
+    '#4CAF50', // Pantone Green
+    '#8BC34A', // Pantone Light Green
+    '#CDDC39', // Pantone Lime
+    '#FFEB3B', // Pantone Yellow
+    '#FFC107', // Pantone Amber
+    '#FF9800', // Pantone Orange
+    '#FF5722', // Pantone Deep Orange
+    '#795548', // Pantone Brown
+    '#9E9E9E', // Pantone Gray
+    '#607D8B', // Pantone Blue Gray
+    '#FFFFFF', // White
+    '#000000', // Black
+    // Pastels
+    '#FFD1DC', // Pastel Pink
+    '#B5EAD7', // Pastel Mint
+    '#C7CEEA', // Pastel Lavender
+    '#FFDAC1', // Pastel Peach
+    '#E2F0CB', // Pastel Green
+    '#FFB7B2', // Pastel Coral
+    '#B5B9FF', // Pastel Blue
+    '#FFFACD', // Pastel Lemon
+    '#F1CBFF', // Pastel Purple
+    '#C1F0F6', // Pastel Aqua
+    // Neutrals
+    '#ECECEC', // Light Gray
+    '#B0A990', // Taupe
+    '#A9A9A9', // Dark Gray
+    '#D7CCC8', // Warm Gray
+    '#CFCFC4', // Cool Gray
+    '#BDBDBD', // Silver Gray
+    '#F5F5F5', // Off White
+    '#D2B48C', // Tan
+    '#A0522D', // Sienna
+    '#8B4513', // Saddle Brown
+    // Pantone brights
+    '#FF6F61', // Living Coral
+    '#6B5B95', // Ultra Violet
+    '#88B04B', // Greenery
+    '#F7CAC9', // Rose Quartz
+    '#92A8D1', // Serenity
+    '#955251', // Marsala
+    '#B565A7', // Radiant Orchid
+    '#009B77', // Emerald
+    '#DD4124', // Tangerine Tango
+    '#D65076', // Pink Yarrow
+    '#45B8AC', // Turquoise
+    '#EFC050', // Mimosa
+    '#5B5EA6', // Classic Blue
+    '#9B2335', // Chili Pepper
+    '#DFCFBE', // Sand
+    '#55B4B0', // Biscay Green
+    '#E15D44', // Flame
+    '#BC243C', // Jester Red
+    '#C3447A', // Magenta Purple
+    '#98B4D4', // Little Boy Blue
+    '#C964CF', // Crocus Petal
+    '#FFA756', // Mango Mojito
+    '#BFD641', // Lime Punch
+    '#00A591', // Arcadia
+    '#F0EAD6', // Soybean
+    '#D6CADD', // Lavender Gray
+    '#EAE6DA', // Almond Oil
+    '#B4835B', // Meerkat
+    '#F3E96B', // Aspen Gold
+    '#F7786B', // Peach Echo
+    '#6C4F3D', // Rocky Road
+    '#DEC7A6', // Sweet Corn
+    '#BCB7B6', // Oyster Mushroom
+    '#B2BEB5', // Quiet Gray
+    '#EDE6DB', // Vanilla Custard
+    '#EAE1DF', // Blanc de Blanc
+    '#D8CAB8', // Crème de Pêche
+    '#E5D3B3', // Lemon Meringue
+    '#F6E3B4', // Golden Glow
+    '#F9E076', // Sunlight
+    '#F7C59F', // Apricot
+    '#F5B895', // Coral Sands
+    '#F6D155', // Primrose Yellow
+    '#EFC7B7', // Rose Water
+    '#F7CAC9', // Pale Dogwood
+    '#BFD8B8', // Seafoam Green
+    '#B5B9FF', // Periwinkle
+    '#B7C9E2', // Powder Blue
+    '#B2A1A1', // Mushroom
+    '#B9B8B5', // Silver Lining
+    '#B5B5B5', // Gray Violet
+  ];
   useEffect(() => {
     if (!plot) {
       const rows = multiplier(size, 10)
@@ -214,6 +376,10 @@ function App() {
   }
 
   function handleSetPixel(params: { x: number; y: number }) {
+    // Haptic feedback: vibrate for 10ms if supported
+    if (navigator.vibrate) {
+      navigator.vibrate(10);
+    }
     if (tool === 'pencil') {
       setPixelAt(params, currColor || 'transparent')
       setPreviewPixels([])
@@ -228,28 +394,58 @@ function App() {
       const c = plot?.[params.x]?.[params.y]
       if (c) setCurrColor(c)
       setPreviewPixels([])
-    } else if (tool === 'line' || tool === 'circle') {
+    } else if (tool === 'line' || tool === 'circle' || tool === 'rectangle') {
       if (!toolStart) {
         setToolStart(params)
       } else {
         pushUndo();
         if (tool === 'line') drawLine(toolStart, params, currColor || 'transparent')
         if (tool === 'circle') drawCircle(toolStart, params, currColor || 'transparent')
+        if (tool === 'rectangle') drawRectangle(toolStart, params, currColor || 'transparent')
         setToolStart(null)
         setPreviewPixels([])
       }
     }
   }
-  // Preview overlay for line/circle
+  // Preview overlay for line/circle/rectangle
   function handlePreview(to: { x: number; y: number }) {
     if (!toolStart) return setPreviewPixels([])
     if (tool === 'line') {
       setPreviewPixels(getLinePixels(toolStart, to))
     } else if (tool === 'circle') {
       setPreviewPixels(getCirclePerimeterPixels(toolStart, to))
+    } else if (tool === 'rectangle') {
+      setPreviewPixels(getRectanglePerimeterPixels(toolStart, to))
     } else {
       setPreviewPixels([])
     }
+  }
+
+  function getRectanglePerimeterPixels(a: { x: number; y: number }, b: { x: number; y: number }) {
+    // Get all four sides of the rectangle perimeter
+    const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x);
+    const minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y);
+    const points: { x: number; y: number }[] = [];
+    for (let i = minX; i <= maxX; i++) {
+      points.push({ x: i, y: minY });
+      points.push({ x: i, y: maxY });
+    }
+    for (let j = minY + 1; j < maxY; j++) {
+      points.push({ x: minX, y: j });
+      points.push({ x: maxX, y: j });
+    }
+    return points;
+  }
+
+  function drawRectangle(a: { x: number; y: number }, b: { x: number; y: number }, color: string) {
+    // Draw only the perimeter, like the circle tool
+    const points = getRectanglePerimeterPixels(a, b);
+    if (!plot) return;
+    const newPlot = plot.map(row => row.slice());
+    points.forEach(p => {
+      if (newPlot[p.x] && typeof newPlot[p.x][p.y] !== 'undefined') newPlot[p.x][p.y] = color;
+    });
+    setPlot(newPlot);
   }
 
   function getLinePixels(a: { x: number; y: number }, b: { x: number; y: number }) {
@@ -357,12 +553,10 @@ function App() {
 
   function handleErasePixel(params: { x: number; y: number }) {
     setCurrentPixel(params)
-    setPlot(prev => {
-      if (!prev) return prev
-      const newPlot = prev.map(row => row.slice())
-      newPlot[params.x][params.y] = 'transparent'
-      return newPlot
-    })
+    if (!plot) return;
+    const newPlot = plot.map((row: string[]) => row.slice());
+    newPlot[params.x][params.y] = 'transparent';
+    setPlot(newPlot);
   }
 
   function generateBlenderScript() {
@@ -553,7 +747,7 @@ if created:
   }
 
   // Save project JSON to file and localStorage
-  function saveProject() {
+  function saveProject(mode: 'save' | 'saveAs' = 'save') {
     if (!plot) {
       toast.error('No plot to save')
       return
@@ -564,8 +758,15 @@ if created:
       const blob = new Blob([txt], { type: 'application/json;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
+      let filename = 'pixel-project.json';
+      if (mode === 'saveAs') {
+        const userName = window.prompt('Enter file name:', 'pixel-project.json');
+        if (userName && userName.trim()) {
+          filename = userName.trim().endsWith('.json') ? userName.trim() : userName.trim() + '.json';
+        }
+      }
       a.href = url
-      a.download = 'pixel-project.json'
+      a.download = filename
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -651,17 +852,27 @@ if created:
     } catch (e) { }
   }, [])
 
-  const menu = ['File', 'Edit', 'View', 'Help']
 
 
   return (
     <div className="App">
 
-      <ToastContainer />
+      <ToastContainer
+        toastClassName="toastify-theme-pixel"
+        className="toastify-theme-pixel"
+        position="top-center"
+        autoClose={2200}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
       <header>
-
-        <MenuBar menu={menu} />
-
+        <MenuBar />
       </header>
       {/* <div className='mini-plot'>
         {plot?.map((val: string[], i: number) => {
@@ -672,24 +883,61 @@ if created:
         {/* Frame controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, justifyContent: 'center' }}>
           <span style={{ fontWeight: 500 }}>Frame:</span>
-          {frames.map((_, idx) => (
-            <button
-              key={idx}
-              style={{
-                background: idx === currentFrame ? '#ffb300' : '#23272e',
-                color: idx === currentFrame ? '#23272e' : '#f5f5f7',
-                border: '1px solid #444',
+          {frames.map((frame, idx) => {
+            // Mini grid preview (always 5x5, sample from the whole frame)
+            const previewSize = 5;
+            const rows = frame.length;
+            const cols = frame[0]?.length || 0;
+            // Sample indices evenly across the frame
+            const rowIdxs = Array.from({ length: previewSize }, (_, i) => Math.floor(i * rows / previewSize));
+            const colIdxs = Array.from({ length: previewSize }, (_, j) => Math.floor(j * cols / previewSize));
+            return (
+              <div key={idx} style={{
+                display: 'inline-block',
+                border: idx === currentFrame ? '2px solid #ffb300' : '1px solid #444',
                 borderRadius: 4,
-                padding: '2px 10px',
-                marginRight: 4,
+                marginRight: 6,
+                background: '#181a20',
+                boxShadow: idx === currentFrame ? '0 2px 8px rgba(0,0,0,0.18)' : undefined,
+                position: 'relative',
                 cursor: 'pointer',
-                fontWeight: idx === currentFrame ? 700 : 400
-              }}
-              onClick={() => setCurrentFrame(idx)}
-            >{idx + 1}</button>
-          ))}
+                verticalAlign: 'middle',
+                padding: 2
+              }}>
+                <div onClick={() => setCurrentFrame(idx)} style={{ display: 'grid', gridTemplateColumns: `repeat(${previewSize}, 1fr)`, width: 28, height: 28, gap: 0 }}>
+                  {rowIdxs.map((i) =>
+                    colIdxs.map((j) => {
+                      const color = frame[i]?.[j] || 'transparent';
+                      return <div key={i + '-' + j} style={{ width: 5, height: 5, background: color, border: '1px solid #23272e', borderRadius: 1 }} />
+                    })
+                  )}
+                </div>
+                {frames.length > 1 && (
+                  <button
+                    onClick={e => { e.stopPropagation(); removeFrame(idx); }}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      right: 0,
+                      background: 'rgba(0,0,0,0.7)',
+                      color: '#ffb300',
+                      border: 'none',
+                      borderRadius: '0 4px 0 4px',
+                      width: 14,
+                      height: 14,
+                      fontSize: 10,
+                      cursor: 'pointer',
+                      lineHeight: '12px',
+                      padding: 0
+                    }}
+                    title="Remove frame"
+                  >×</button>
+                )}
+              </div>
+            );
+          })}
           <button
-            style={{ background: '#23272e', color: '#ffb300', border: '1px dashed #ffb300', borderRadius: 4, padding: '2px 10px', cursor: 'pointer', fontWeight: 700 }}
+            className="frame-btn add-frame"
             onClick={addFrame}
           >+ Add Frame</button>
           <span style={{ marginLeft: 24, fontWeight: 500 }}>Pixel Count:</span>
@@ -699,7 +947,7 @@ if created:
             max={64}
             value={size}
             onChange={e => setSize(Number(e.target.value))}
-            style={{ width: 60, background: '#23272e', color: '#f5f5f7', border: '1px solid #444', borderRadius: 4, padding: '2px 6px', fontSize: 15, marginLeft: 4 }}
+            className="pixel-count-input"
           />
         </div>
         <div className='plot' onMouseEnter={() => setShowToolCursor(true)} onMouseLeave={() => setShowToolCursor(false)}>
@@ -708,12 +956,12 @@ if created:
               const isPreview = previewPixels.some(p => p.x === i && p.y === j)
               return (
                 <div
-                  onMouseEnter={() => { handleMouseEnterPixel({ x: i, y: j }); if (toolStart && (tool === 'line' || tool === 'circle')) handlePreview({ x: i, y: j }) }}
+                  onMouseEnter={() => { handleMouseEnterPixel({ x: i, y: j }); if (toolStart && (tool === 'line' || tool === 'circle' || tool === 'rectangle')) handlePreview({ x: i, y: j }) }}
                   onMouseLeave={handleMouseLeavePixel}
                   onClick={() => handleSetPixel({ x: i, y: j })}
                   className={`pixel${isPreview ? ' preview' : ''}`}
                   key={j}
-                  style={{ backgroundColor: isPreview ? currColor : v, opacity: isPreview ? 0.5 : 1, width: 20, height: 20 }} />
+                  style={{ backgroundColor: isPreview ? currColor : v, opacity: isPreview ? 0.5 : 1, width: cellSize, height: cellSize }} />
               )
             })}</div>
           })}
@@ -738,14 +986,11 @@ if created:
       <div id="picker" className='color'></div>
       <ToolBar
         setColorMenuOpen={setColorMenuOpen}
-        colorMenuOpen={colorMenuOpen}
-        colors={colors} currColor={currColor}
-        handleClear={handleClear} fillFromCurrentPixel={fillFromCurrentPixel}
+        handleClear={handleClear}
+        fillFromCurrentPixel={fillFromCurrentPixel}
         handleErasePixel={handleErasePixel}
-        setCurrColor={setCurrColor}
         getCode={getCode}
         downloadScript={downloadScript}
-        voxelSizeMm={voxelSizeMm}
         setVoxelSizeMm={setVoxelSizeMm}
         tool={tool}
         setTool={setTool}
@@ -753,34 +998,21 @@ if created:
         loadProject={loadProjectFile}
         exportPNG={exportPNG}
         undo={undo}
-        redo={redo} />
+        redo={redo}
+      />
+      <ColorModal
+        open={colorMenuOpen}
+        onClose={() => setColorMenuOpen(false)}
+        colors={colors}
+        currColor={currColor}
+        setCurrColor={setCurrColor}
+      />
     </div>
 
 
   )
 }
 
-// interface ToolBarProps {
-//   setColorMenuOpen: React.Dispatch<React.SetStateAction<boolean>>
-//   colorMenuOpen: boolean
-//   colors: string[]
-//   currColor: string
-//   handleClear: () => void
-//   fillFromCurrentPixel: () => void
-//   handleErasePixel: (p: { x: number; y: number }) => void
-//   setCurrColor: (c: string) => void
-//   getCode: () => void
-//   downloadScript: () => void
-//   voxelSizeMm: number
-//   setVoxelSizeMm: (n: number) => void
-//   tool: Tool
-//   setTool: (t: Tool) => void
-//   saveProject: () => void
-//   loadProject: (f: File | null) => void
-//   exportPNG: () => void
-//   undo: () => void
-//   redo: () => void
-// }
 
 // const ToolBar = (props: ToolBarProps) => {
 //   const { setColorMenuOpen, colorMenuOpen, colors, currColor, handleClear, fillFromCurrentPixel, handleErasePixel, setCurrColor, getCode, downloadScript, voxelSizeMm, setVoxelSizeMm, tool, setTool, saveProject, loadProject, exportPNG, undo, redo } = props

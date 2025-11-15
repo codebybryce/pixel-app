@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type Tool = 'pencil' | 'fill' | 'eraser' | 'line' | 'circle' | 'picker';
+export type Tool = 'pencil' | 'fill' | 'eraser' | 'line' | 'circle' | 'rectangle' | 'picker';
 
 export interface Pixel {
   x: number;
@@ -18,6 +18,7 @@ export interface GlobalStore {
   frames: string[][][]; // Array of plots (frames)
   currentFrame: number; // Index of current frame
   addFrame: () => void;
+  removeFrame: (idx: number) => void;
   setCurrentFrame: (idx: number) => void;
   setFramePlot: (plot: string[][]) => void;
   // For backward compatibility
@@ -74,6 +75,15 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
     const { frames, size } = get();
     const newFrame = Array.from({ length: size }, () => Array.from({ length: size }, () => "transparent"));
     set({ frames: [...frames, newFrame], currentFrame: frames.length });
+  },
+  removeFrame: (idx) => {
+    const { frames, currentFrame } = get();
+    if (frames.length <= 1) return; // Always keep at least one frame
+    const newFrames = frames.filter((_, i) => i !== idx);
+    let newCurrent = currentFrame;
+    if (currentFrame > idx) newCurrent = currentFrame - 1;
+    if (currentFrame === idx) newCurrent = Math.max(0, currentFrame - 1);
+    set({ frames: newFrames, currentFrame: newCurrent });
   },
   setCurrentFrame: (idx) => set({ currentFrame: idx }),
   setFramePlot: (plot) => {

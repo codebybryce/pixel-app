@@ -1,37 +1,28 @@
 import React, { useEffect } from 'react';
 import { IoIosColorPalette } from "react-icons/io";
 import { MdClear, MdFormatColorFill } from "react-icons/md";
-import { Circle } from '@uiw/react-color';
 import { BsEraserFill } from "react-icons/bs";
-import { FaCode, FaDownload, FaPencilAlt, FaFillDrip, FaSlash, FaRegCircle, FaEyeDropper, FaUndo, FaRedo } from "react-icons/fa";
+import { FaCode, FaDownload, FaPencilAlt, FaFillDrip, FaSlash, FaRegCircle, FaEyeDropper, FaUndo, FaRedo, FaRegSquare } from "react-icons/fa";
 
 import type { Tool } from '../store/useGlobalStore';
 
 
 export interface ToolBarProps {
     setColorMenuOpen: (open: boolean) => void;
-    colorMenuOpen: boolean;
-    colors: string[];
-    currColor: string;
     handleClear: () => void;
     fillFromCurrentPixel: () => void;
     handleErasePixel: (p: { x: number; y: number }) => void;
-    setCurrColor: (c: string) => void;
     getCode: () => void;
     downloadScript: () => void;
-    voxelSizeMm: number;
-    setVoxelSizeMm: (n: number) => void;
     tool: Tool;
     setTool: (tool: Tool) => void;
     saveProject: () => void;
-    loadProject: (f: File | null) => void;
-    exportPNG: () => void;
     undo: () => void;
     redo: () => void;
 }
 
 const ToolBar: React.FC<ToolBarProps> = (props) => {
-    const { setColorMenuOpen, colorMenuOpen, colors, currColor, handleClear, fillFromCurrentPixel, handleErasePixel, setCurrColor, getCode, downloadScript, voxelSizeMm, setVoxelSizeMm, tool, setTool, saveProject, loadProject, exportPNG, undo, redo } = props;
+    const { setColorMenuOpen, handleClear, fillFromCurrentPixel, handleErasePixel, getCode, downloadScript, tool, setTool, saveProject, undo, redo } = props;
 
 
     return (
@@ -40,24 +31,13 @@ const ToolBar: React.FC<ToolBarProps> = (props) => {
                 <button onClick={() => setTool('pencil')} className={tool === 'pencil' ? 'active' : ''} title="Pencil"><FaPencilAlt /></button>
                 <button onClick={() => setTool('fill')} className={tool === 'fill' ? 'active' : ''} title="Fill"><FaFillDrip /></button>
                 <button onClick={() => setTool('line')} className={tool === 'line' ? 'active' : ''} title="Line"><FaSlash /></button>
-                {/* Rectangle tool removed for type safety; add to store type if needed */}
+                <button onClick={() => setTool('rectangle')} className={tool === 'rectangle' ? 'active' : ''} title="Rectangle"><FaRegSquare /></button>
                 <button onClick={() => setTool('circle')} className={tool === 'circle' ? 'active' : ''} title="Circle"><FaRegCircle /></button>
                 <button onClick={() => setTool('eraser')} className={tool === 'eraser' ? 'active' : ''} title="Eraser"><BsEraserFill /></button>
                 <button onClick={() => setTool('picker')} className={tool === 'picker' ? 'active' : ''} title="Picker"><FaEyeDropper /></button>
                 <button onClick={undo} title="Undo"><FaUndo /></button>
                 <button onClick={redo} title="Redo"><FaRedo /></button>
-                <button onClick={() => setColorMenuOpen(!colorMenuOpen)} title="Picker"><IoIosColorPalette /></button>
-                <div className={`color-menu ${colorMenuOpen ? "open" : "hidden"}`}>
-                    {colors.map((v: string, idx: number) => <div key={idx} className="color-choice" style={{ backgroundColor: v }} onClick={() => setCurrColor(v)} />)}
-                    <div className="color-choice new">+</div>
-                    <Circle
-                        style={{ marginLeft: 20 }}
-                        color={currColor}
-                        onChange={(color: any) => {
-                            setCurrColor(color.hex);
-                        }}
-                    />
-                </div>
+                <button onClick={() => setColorMenuOpen(true)} title="Palette"><IoIosColorPalette /></button>
             </div>
             <button onClick={handleClear}><MdClear />Clear</button>
             <button onClick={fillFromCurrentPixel}><MdFormatColorFill />fill</button>
