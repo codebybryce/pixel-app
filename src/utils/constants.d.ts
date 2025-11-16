@@ -8,4 +8,5 @@ export const FILE_MENU: string[];
 export const EDIT_MENU: string[];
 export const VIEW_MENU: string[];
 export const HELP_MENU: string[];
+export const IMAGE_MENU: string[];
 // Add other exports as needed from constants.js

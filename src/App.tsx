@@ -287,14 +287,6 @@ function App() {
     toast.success('Fill applied')
   }
 
-  function fillFromCurrentPixel() {
-    console.log(currentPixel)
-    if (!currentPixel) {
-      toast.error('No pixel selected')
-      return
-    }
-    floodFill(currentPixel.x, currentPixel.y, currColor)
-  }
   // (handleFill removed — not used)
 
 
@@ -630,13 +622,6 @@ function App() {
 
   }
 
-  function handleErasePixel(params: { x: number; y: number }) {
-    setCurrentPixel(params)
-    if (!plot) return;
-    const newPlot = plot.map((row: string[]) => row.slice());
-    newPlot[params.x][params.y] = 'transparent';
-    setPlot(newPlot);
-  }
 
   function generateBlenderScript() {
     if (!plot) return null;
@@ -772,58 +757,7 @@ if created:
 
 
 
-  function getCode() {
-    if (!plot) {
-      toast.error('No plot data')
-      return
-    }
 
-    const blenderScript = generateBlenderScript()
-    if (!blenderScript) {
-      toast.error('No plot data')
-      return
-    }
-
-    // Copy to clipboard with a fallback
-    navigator.clipboard.writeText(blenderScript).then(() => {
-      toast.success('Blender script copied to clipboard!')
-    }).catch(() => {
-      // fallback: create temporary textarea and use execCommand
-      try {
-        const ta = document.createElement('textarea')
-        ta.value = blenderScript
-        document.body.appendChild(ta)
-        ta.select()
-        document.execCommand('copy')
-        document.body.removeChild(ta)
-        toast.success('Blender script copied to clipboard (fallback)!')
-      } catch (e) {
-        toast.error('Unable to copy Blender script to clipboard')
-      }
-    })
-  }
-
-  function downloadScript() {
-    const blenderScript = generateBlenderScript()
-    if (!blenderScript) {
-      toast.error('No plot data')
-      return
-    }
-    try {
-      const blob = new Blob([blenderScript], { type: 'text/x-python;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'pixel_script.py'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-      toast.success('Blender script downloaded')
-    } catch (e) {
-      toast.error('Download failed')
-    }
-  }
 
   // Save project JSON to file and localStorage
   function saveProject(mode: 'save' | 'saveAs' = 'save') {
@@ -1030,13 +964,8 @@ if created:
       <ToolBar
         setColorMenuOpen={setColorMenuOpen}
         handleClear={handleClear}
-        fillFromCurrentPixel={fillFromCurrentPixel}
-        handleErasePixel={handleErasePixel}
-        getCode={getCode}
-        downloadScript={downloadScript}
         tool={tool}
         setTool={setTool}
-        saveProject={saveProject}
         undo={undo}
         redo={redo}
       />

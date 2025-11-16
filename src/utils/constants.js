@@ -1,3 +1,9 @@
+export const IMAGE_MENU = [
+    'Flip Horizontal',
+    'Flip Vertical',
+    'Rotate Left',
+    'Rotate Right',
+];
 // Image manipulation functions for IMAGE_MENU
 /**
  * Flip a 2D array horizontally
@@ -58,10 +64,3 @@ export const HELP_MENU = [
     'Documentation',
     'About',
 ]   
-
-export const IMAGE_MENU = [   
-    'Flip Horizontal',
-    'Flip Vertical',
-    'Rotate Left',
-    'Rotate Right',
-];

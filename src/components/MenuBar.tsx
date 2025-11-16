@@ -79,7 +79,7 @@ export default function MenuBar() {
 
     return (
         <div className="menu-bar">
-            <img src="/src/assets/logo.png" alt="Logo" className="logo" style={{ height: '3rem' }}></img>
+            <img src="/logo.png" alt="Logo" className="logo" style={{ height: '3rem' }}></img>
             {MENU_ITEMS.map((v: string, i: number) =>
 
                 <div className="menu-stack" key={v}>

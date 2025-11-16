@@ -1,6 +1,6 @@
 import React from 'react';
 import { IoIosColorPalette } from "react-icons/io";
-import { MdClear, MdFormatColorFill } from "react-icons/md";
+// import { MdClear, MdFormatColorFill } from "react-icons/md";
 import { BsEraserFill } from "react-icons/bs";
 import { FaPencilAlt, FaFillDrip, FaSlash, FaRegCircle, FaEyeDropper, FaUndo, FaRedo, FaRegSquare, FaBorderNone } from "react-icons/fa";
 
