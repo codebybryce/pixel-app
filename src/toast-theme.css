@@ -1,0 +1,13 @@
+/* Toast theme for Pixel App */
+.toastify-theme-pixel {
+  background: #23272e !important;
+  color: #ffb300 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18) !important;
+  font-family: 'Inter', 'Segoe UI', 'Arial', sans-serif !important;
+  font-size: 1rem !important;
+  border: 1.5px solid #ffb300 !important;
+}
+.toastify-theme-pixel .Toastify__progress-bar {
+  background: #ffb300 !important;
+}
