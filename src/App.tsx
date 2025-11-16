@@ -1,3 +1,6 @@
+import { auth, provider } from './firebase';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import { exportSTL } from './utils/exportSTL';
 import { flipHorizontal, flipVertical, rotateLeft, rotateRight } from './utils/constants';
 import { useEffect, useState } from 'react';
@@ -15,6 +18,29 @@ import { useGlobalStore } from "./store/useGlobalStore";
 
 
 function App() {
+  // Firebase Auth state
+  const [user, setUser] = useState<User | null>(null);
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, setUser);
+    return () => unsub();
+  }, []);
+
+  async function handleSignIn() {
+    try {
+      await signInWithPopup(auth, provider);
+      toast.success('Signed in!');
+    } catch (e) {
+      toast.error('Sign in failed');
+    }
+  }
+  async function handleSignOut() {
+    try {
+      await signOut(auth);
+      toast.success('Signed out!');
+    } catch (e) {
+      toast.error('Sign out failed');
+    }
+  }
   // Export STL for current frame
   function handleExportSTL() {
     if (!plot) return;
@@ -89,7 +115,7 @@ function App() {
     function handleMenuBarAction(e: Event) {
       const custom = e as CustomEvent;
       const action = custom.detail?.action;
-  switch (action) {
+      switch (action) {
         case 'clear':
           handleClear(); break;
         case 'undo':
@@ -928,6 +954,16 @@ if created:
       />
       <header>
         <MenuBar />
+        <div style={{ position: 'absolute', top: 18, right: 24, zIndex: 100 }}>
+          {user ? (
+            <>
+              <span style={{ color: '#ffb300', marginRight: 12 }}>Hi, {user.displayName || user.email}</span>
+              <button onClick={handleSignOut} style={{ background: '#23272e', color: '#ffb300', border: '1px solid #444', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontWeight: 600 }}>Sign Out</button>
+            </>
+          ) : (
+            <button onClick={handleSignIn} style={{ background: '#23272e', color: '#ffb300', border: '1px solid #444', borderRadius: 6, padding: '6px 18px', cursor: 'pointer', fontWeight: 600 }}>Sign In</button>
+          )}
+        </div>
       </header>
       {/* <div className='mini-plot'>
         {plot?.map((val: string[], i: number) => {
@@ -992,9 +1028,6 @@ if created:
           })}
         </div>
       </div>
-      {/* <div className="plot">
-        <input type="text" />
-      </div> */}
       {showToolCursor && (
         <div
           id="cursor"
@@ -1040,47 +1073,5 @@ if created:
 }
 
 
-// const ToolBar = (props: ToolBarProps) => {
-//   const { setColorMenuOpen, colorMenuOpen, colors, currColor, handleClear, fillFromCurrentPixel, handleErasePixel, setCurrColor, getCode, downloadScript, voxelSizeMm, setVoxelSizeMm, tool, setTool, saveProject, loadProject, exportPNG, undo, redo } = props
-//   return (
-//       <div className="toolbar">
-//         <div style={{ display: 'inline-flex', gap: 6, marginRight: 12 }}>
-//           <button onClick={() => setTool('pencil')} className={tool === 'pencil' ? 'active' : ''} title="Pencil"><FaPencilAlt /></button>
-//           <button onClick={() => setTool('fill')} className={tool === 'fill' ? 'active' : ''} title="Fill"><FaFillDrip /></button>
-//           <button onClick={() => setTool('line')} className={tool === 'line' ? 'active' : ''} title="Line"><FaSlash /></button>
-//           <button onClick={() => setTool('circle')} className={tool === 'circle' ? 'active' : ''} title="Circle"><FaRegCircle /></button>
-//           <button onClick={() => setTool('eraser')} className={tool === 'eraser' ? 'active' : ''} title="Eraser"><BsEraserFill /></button>
-//           <button onClick={() => setTool('picker')} className={tool === 'picker' ? 'active' : ''} title="Picker"><FaEyeDropper /></button>
-//           <button onClick={undo} title="Undo"><FaUndo /></button>
-//           <button onClick={redo} title="Redo"><FaRedo /></button>
-//         </div>
-//       <button onClick={() => setColorMenuOpen(!colorMenuOpen)}><IoIosColorPalette />Color</button>
-//       <div className={`color-menu ${colorMenuOpen ? "open" : "hidden"}`}>
-//         {colors.map((v: string, idx: number) => <div key={idx} className="color-choice" style={{ backgroundColor: v }} onClick={() => setCurrColor(v)} />)}
-//         <div className="color-choice new">+</div>
-//         <Circle
-//           style={{ marginLeft: 20 }}
-//           color={currColor}
-//           onChange={(color: any) => {
-//             setCurrColor(color.hex);
-//           }}
-//         />
-//       </div>
-//       <button onClick={handleClear}><MdClear />Clear</button>
-//       <button onClick={fillFromCurrentPixel}><MdFormatColorFill />fill</button>
-//       <button onClick={() => handleErasePixel({ x: 0, y: 0 })}><BsEraserFill />Erase</button>
-//       <button onClick={getCode}><FaCode />Get Code</button>
-//       <button onClick={downloadScript}><FaDownload />Download .py</button>
-//   <button onClick={saveProject}>Save JSON</button>
-//   <button onClick={exportPNG}>Export PNG</button>
-//   <input type="file" accept="application/json" style={{ display: 'none' }} id="file-load-input" onChange={(e) => { const f = e.target.files?.[0] ?? null; loadProject(f); (e.target as HTMLInputElement).value = '' }} />
-//   <button onClick={() => { const el = document.getElementById('file-load-input') as HTMLInputElement | null; el?.click() }}>Load JSON</button>
-//       <label style={{ marginLeft: 10, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-//         <span style={{ fontSize: 12 }}>Voxel (mm)</span>
-//         <input type="number" value={voxelSizeMm} onChange={(e) => setVoxelSizeMm(Number(e.target.value))} step={0.5} min={0.1} style={{ width: 64 }} />
-//       </label>
-//     </div>
-//   )
-// }
 
 export default App

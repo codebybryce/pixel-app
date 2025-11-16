@@ -42,11 +42,11 @@ const ToolBar: React.FC<ToolBarProps> = (props) => {
                 <button onClick={handleClear}><FaBorderNone /></button>
 
             </div>
-            <button onClick={fillFromCurrentPixel}><MdFormatColorFill />fill</button>
+            {/* <button onClick={fillFromCurrentPixel}><MdFormatColorFill />fill</button>
             <button onClick={() => handleErasePixel({ x: 0, y: 0 })}><BsEraserFill />Erase</button>
             <button onClick={getCode}><FaCode />Get Code</button>
             <button onClick={downloadScript}><FaDownload />Download .py</button>
-            <button onClick={saveProject}>Save JSON</button>
+            <button onClick={saveProject}>Save JSON</button> */}
             {/* <button onClick={exportPNG}>Export PNG</button>
             <input type="file" accept="application/json" style={{ display: 'none' }} id="file-load-input" onChange={(e) => { const f = e.target.files?.[0] ?? null; loadProject(f); (e.target as HTMLInputElement).value = '' }} />
             <button onClick={() => { const el = document.getElementById('file-load-input') as HTMLInputElement | null; el?.click() }}>Load JSON</button>
