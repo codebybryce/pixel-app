@@ -1,3 +1,5 @@
+import { exportSTL } from './utils/exportSTL';
+import { flipHorizontal, flipVertical, rotateLeft, rotateRight } from './utils/constants';
 import { useEffect, useState } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -6,10 +8,42 @@ import "./App.css";
 import ToolBar from './components/ToolBar';
 import ColorModal from './components/ColorModal';
 import MenuBar from './components/MenuBar';
+import FramesModal from './components/FramesModal';
 import { useGlobalStore } from "./store/useGlobalStore";
-// import type { Tool } from "./store/useGlobalStore";
+
+
+
 
 function App() {
+  // Export STL for current frame
+  function handleExportSTL() {
+    if (!plot) return;
+    exportSTL(plot, voxelSizeMm, 'pixelart.stl');
+    toast.success('STL file exported!');
+  }
+
+  // Export Blender script for current frame
+  function handleExportBlender() {
+    const blenderScript = generateBlenderScript();
+    if (!blenderScript) {
+      toast.error('No plot data');
+      return;
+    }
+    try {
+      const blob = new Blob([blenderScript], { type: 'text/x-python;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'pixel_script.py';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success('Blender script downloaded');
+    } catch (e) {
+      toast.error('Download failed');
+    }
+  }
   // Cell size state for zoom (optional, default 20)
   const [cellSize, setCellSize] = useState<number>(20);
   // Dummy state to force re-render
@@ -31,13 +65,12 @@ function App() {
   const setPlot = useGlobalStore((s) => s.setPlot);
   const colorMenuOpen = useGlobalStore((s) => s.colorMenuOpen);
   const setColorMenuOpen = useGlobalStore((s) => s.setColorMenuOpen);
-  const mousePos = useGlobalStore((s) => s.mousePos);
-  const setMousePos = useGlobalStore((s) => s.setMousePos);
+  // Use local state for mouse position for smooth custom cursor
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const showToolCursor = useGlobalStore((s) => s.showToolCursor);
   const setShowToolCursor = useGlobalStore((s) => s.setShowToolCursor);
   const shiftButtonEngaged = useGlobalStore((s) => s.shiftButtonEngaged);
   const setShiftButtonEngaged = useGlobalStore((s) => s.setShiftButtonEngaged);
-  // ...existing code...
   const voxelSizeMm = useGlobalStore((s) => s.voxelSizeMm);
   const setVoxelSizeMm = useGlobalStore((s) => s.setVoxelSizeMm);
   const tool = useGlobalStore((s) => s.tool);
@@ -56,7 +89,7 @@ function App() {
     function handleMenuBarAction(e: Event) {
       const custom = e as CustomEvent;
       const action = custom.detail?.action;
-      switch (action) {
+  switch (action) {
         case 'clear':
           handleClear(); break;
         case 'undo':
@@ -73,6 +106,10 @@ function App() {
           break;
         case 'export':
           exportPNG(); break;
+        case 'exportSTL':
+          handleExportSTL(); break;
+        case 'exportBlender':
+          handleExportBlender(); break;
         case 'cut':
           copyToClipboard();
           handleClear();
@@ -91,6 +128,22 @@ function App() {
           break;
         case 'resetZoom':
           setCellSize(20);
+          break;
+        case 'Flip Horizontal':
+          setPlot(flipHorizontal(plot));
+          toast.success('Flipped horizontally');
+          break;
+        case 'Flip Vertical':
+          setPlot(flipVertical(plot));
+          toast.success('Flipped vertically');
+          break;
+        case 'Rotate Left':
+          setPlot(rotateLeft(plot));
+          toast.success('Rotated left');
+          break;
+        case 'Rotate Right':
+          setPlot(rotateRight(plot));
+          toast.success('Rotated right');
           break;
         default:
           break;
@@ -137,16 +190,16 @@ function App() {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [tool]);
-  // Handle mouse movement
+  // Handle mouse movement for custom cursor (local state)
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY })
-    }
-    window.addEventListener('mousemove', handleMouseMove)
+      setMousePos({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove)
-    }
-  }, [])
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -852,6 +905,8 @@ if created:
     } catch (e) { }
   }, [])
 
+  const [framesMenuOpen, setFramesMenuOpen] = useState(false)
+
 
 
   return (
@@ -860,8 +915,8 @@ if created:
       <ToastContainer
         toastClassName="toastify-theme-pixel"
         className="toastify-theme-pixel"
-        position="top-center"
-        autoClose={2200}
+        position="bottom-right"
+        autoClose={1000}
         hideProgressBar={false}
         newestOnTop={false}
         closeOnClick
@@ -882,64 +937,21 @@ if created:
       <div style={{ marginTop: '80px' }}>
         {/* Frame controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, justifyContent: 'center' }}>
-          <span style={{ fontWeight: 500 }}>Frame:</span>
-          {frames.map((frame, idx) => {
-            // Mini grid preview (always 5x5, sample from the whole frame)
-            const previewSize = 5;
-            const rows = frame.length;
-            const cols = frame[0]?.length || 0;
-            // Sample indices evenly across the frame
-            const rowIdxs = Array.from({ length: previewSize }, (_, i) => Math.floor(i * rows / previewSize));
-            const colIdxs = Array.from({ length: previewSize }, (_, j) => Math.floor(j * cols / previewSize));
-            return (
-              <div key={idx} style={{
-                display: 'inline-block',
-                border: idx === currentFrame ? '2px solid #ffb300' : '1px solid #444',
-                borderRadius: 4,
-                marginRight: 6,
-                background: '#181a20',
-                boxShadow: idx === currentFrame ? '0 2px 8px rgba(0,0,0,0.18)' : undefined,
-                position: 'relative',
-                cursor: 'pointer',
-                verticalAlign: 'middle',
-                padding: 2
-              }}>
-                <div onClick={() => setCurrentFrame(idx)} style={{ display: 'grid', gridTemplateColumns: `repeat(${previewSize}, 1fr)`, width: 28, height: 28, gap: 0 }}>
-                  {rowIdxs.map((i) =>
-                    colIdxs.map((j) => {
-                      const color = frame[i]?.[j] || 'transparent';
-                      return <div key={i + '-' + j} style={{ width: 5, height: 5, background: color, border: '1px solid #23272e', borderRadius: 1 }} />
-                    })
-                  )}
-                </div>
-                {frames.length > 1 && (
-                  <button
-                    onClick={e => { e.stopPropagation(); removeFrame(idx); }}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      right: 0,
-                      background: 'rgba(0,0,0,0.7)',
-                      color: '#ffb300',
-                      border: 'none',
-                      borderRadius: '0 4px 0 4px',
-                      width: 14,
-                      height: 14,
-                      fontSize: 10,
-                      cursor: 'pointer',
-                      lineHeight: '12px',
-                      padding: 0
-                    }}
-                    title="Remove frame"
-                  >×</button>
-                )}
-              </div>
-            );
-          })}
           <button
-            className="frame-btn add-frame"
-            onClick={addFrame}
-          >+ Add Frame</button>
+            style={{
+              fontWeight: 600,
+              background: '#23272e',
+              color: '#ffb300',
+              border: '1px solid #444',
+              borderRadius: 6,
+              padding: '8px 18px',
+              cursor: 'pointer',
+              fontSize: 16
+            }}
+            onClick={() => setFramesMenuOpen(true)}
+          >
+            Frames
+          </button>
           <span style={{ marginLeft: 24, fontWeight: 500 }}>Pixel Count:</span>
           <input
             type="number"
@@ -950,7 +962,20 @@ if created:
             className="pixel-count-input"
           />
         </div>
-        <div className='plot' onMouseEnter={() => setShowToolCursor(true)} onMouseLeave={() => setShowToolCursor(false)}>
+        <FramesModal
+          open={framesMenuOpen}
+          onClose={() => setFramesMenuOpen(false)}
+          frames={frames}
+          currentFrame={currentFrame}
+          setCurrentFrame={setCurrentFrame}
+          addFrame={addFrame}
+          removeFrame={removeFrame}
+        />
+        <div
+          className='plot'
+          onMouseEnter={() => setShowToolCursor(true)}
+          onMouseLeave={() => setShowToolCursor(false)}
+        >
           {plot?.map((val: string[], i: number) => {
             return <div key={i}>{val.map((v: string, j: number) => {
               const isPreview = previewPixels.some(p => p.x === i && p.y === j)
@@ -970,19 +995,23 @@ if created:
       {/* <div className="plot">
         <input type="text" />
       </div> */}
-      {showToolCursor && <div
-        id="cursor"
-        className={tool}
-        style={{
-          position: 'fixed',
-          left: `${mousePos.x}px`,
-          top: `${mousePos.y}px`,
-          pointerEvents: 'none',
-          transform: 'translate(-50%, -50%)',
-          // expose color as CSS variable for styling
-          ['--c' as any]: currColor
-        }}
-      />}
+      {showToolCursor && (
+        <div
+          id="cursor"
+          className="custom-cursor filled-circle"
+          style={{
+            position: 'fixed',
+            // Offset: 10px right, 10px down from pointer
+            left: `${mousePos.x + 10}px`,
+            top: `${mousePos.y + 10}px`,
+            pointerEvents: 'none',
+            transform: 'translate(-50%, -50%)',
+            zIndex: 9999,
+          }}
+        >
+          <div className="cursor-color-indicator small" style={{ background: currColor }} />
+        </div>
+      )}
       <div id="picker" className='color'></div>
       <ToolBar
         setColorMenuOpen={setColorMenuOpen}
@@ -991,12 +1020,9 @@ if created:
         handleErasePixel={handleErasePixel}
         getCode={getCode}
         downloadScript={downloadScript}
-        setVoxelSizeMm={setVoxelSizeMm}
         tool={tool}
         setTool={setTool}
         saveProject={saveProject}
-        loadProject={loadProjectFile}
-        exportPNG={exportPNG}
         undo={undo}
         redo={redo}
       />

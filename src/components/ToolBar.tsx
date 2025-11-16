@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { IoIosColorPalette } from "react-icons/io";
 import { MdClear, MdFormatColorFill } from "react-icons/md";
 import { BsEraserFill } from "react-icons/bs";
-import { FaCode, FaDownload, FaPencilAlt, FaFillDrip, FaSlash, FaRegCircle, FaEyeDropper, FaUndo, FaRedo, FaRegSquare } from "react-icons/fa";
+import { FaCode, FaDownload, FaPencilAlt, FaFillDrip, FaSlash, FaRegCircle, FaEyeDropper, FaUndo, FaRedo, FaRegSquare, FaBorderNone } from "react-icons/fa";
 
 import type { Tool } from '../store/useGlobalStore';
 
@@ -26,9 +26,10 @@ const ToolBar: React.FC<ToolBarProps> = (props) => {
 
 
     return (
+
         <div className="toolbar">
             <div style={{ display: 'inline-flex', gap: 6, marginRight: 12 }}>
-                <button onClick={() => setTool('pencil')} className={tool === 'pencil' ? 'active' : ''} title="Pencil"><FaPencilAlt /></button>
+                <button title="Pencil" onClick={() => setTool('pencil')} className={tool === 'pencil' ? 'active' : ''} title="Pencil"><FaPencilAlt /></button>
                 <button onClick={() => setTool('fill')} className={tool === 'fill' ? 'active' : ''} title="Fill"><FaFillDrip /></button>
                 <button onClick={() => setTool('line')} className={tool === 'line' ? 'active' : ''} title="Line"><FaSlash /></button>
                 <button onClick={() => setTool('rectangle')} className={tool === 'rectangle' ? 'active' : ''} title="Rectangle"><FaRegSquare /></button>
@@ -38,8 +39,9 @@ const ToolBar: React.FC<ToolBarProps> = (props) => {
                 <button onClick={undo} title="Undo"><FaUndo /></button>
                 <button onClick={redo} title="Redo"><FaRedo /></button>
                 <button onClick={() => setColorMenuOpen(true)} title="Palette"><IoIosColorPalette /></button>
+                <button onClick={handleClear}><FaBorderNone /></button>
+
             </div>
-            <button onClick={handleClear}><MdClear />Clear</button>
             <button onClick={fillFromCurrentPixel}><MdFormatColorFill />fill</button>
             <button onClick={() => handleErasePixel({ x: 0, y: 0 })}><BsEraserFill />Erase</button>
             <button onClick={getCode}><FaCode />Get Code</button>

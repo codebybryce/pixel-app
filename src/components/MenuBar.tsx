@@ -1,6 +1,6 @@
 
 import { useState, useRef } from 'react';
-import { MENU_ITEMS, FILE_MENU, EDIT_MENU, VIEW_MENU, HELP_MENU } from '../utils/constants';
+import { MENU_ITEMS, FILE_MENU, EDIT_MENU, VIEW_MENU, HELP_MENU, IMAGE_MENU } from '../utils/constants';
 
 // Helper to dispatch custom events for App-level actions
 function triggerAppAction(action: string, detail?: any) {
@@ -14,7 +14,9 @@ function handleMenuAction(menu: string, item: string) {
         if (item === 'Open') triggerAppAction('open');
         if (item === 'Save') triggerAppAction('save');
         if (item === 'Save As') triggerAppAction('saveAs');
-        if (item === 'Export') triggerAppAction('export');
+        if (item === 'Export PNG') triggerAppAction('export');
+        if (item === 'Export STL') triggerAppAction('exportSTL');
+        if (item === 'Export Blender') triggerAppAction('exportBlender');
     }
     // Edit menu
     if (menu === 'Edit') {
@@ -27,6 +29,12 @@ function handleMenuAction(menu: string, item: string) {
     // View menu
     if (menu === 'View') {
         if (item === 'Zoom In') triggerAppAction('zoomIn');
+        if (item === 'Zoom Out') triggerAppAction('zoomOut');
+        if (item === 'Reset Zoom') triggerAppAction('resetZoom');
+    }
+    // View menu
+    if (menu === 'Image') {
+        if (item === '') triggerAppAction('zoomIn');
         if (item === 'Zoom Out') triggerAppAction('zoomOut');
         if (item === 'Reset Zoom') triggerAppAction('resetZoom');
     }
@@ -50,6 +58,8 @@ export default function MenuBar() {
                 return VIEW_MENU;
             case 'Help':
                 return HELP_MENU;
+            case 'Image':
+                return IMAGE_MENU;
             default:
                 return [];
         }
