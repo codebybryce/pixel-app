@@ -6,7 +6,9 @@ import type { User } from 'firebase/auth';
 import { exportSTL } from './utils/exportSTL';
 import { flipHorizontal, flipVertical, rotateLeft, rotateRight } from './utils/constants';
 import { useEffect, useState } from 'react';
-import { notifySuccess, notifyError, notifyInfo } from './utils/notifications';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import './toast-theme.css';
 import "./App.css";
 import ToolBar from './components/ToolBar';
 import ColorModal from './components/ColorModal';
@@ -39,87 +41,9 @@ function App() {
     return () => unsub();
   }, []);
 
-  async function handleSignIn() {
-    try {
-      await signInWithPopup(auth, provider);
-      notifySuccess('Signed in!');
-    } catch (e) {
-      notifyError('Sign in failed');
-    }
-  }
-
-  async function updateCloudProject(id: string | null) {
-    if (!user) { notifyError('Sign in to update projects'); return; }
-    if (!id) { notifyError('No project selected'); return; }
-    if (!plot) { notifyError('No plot to save'); return; }
-    setNetworkLoading(true);
-    try {
-      const d = doc(db, 'users', user.uid, 'projects', id);
-      const data = { title: title || 'Untitled', plot, voxelSizeMm, width, height, updatedAt: serverTimestamp() };
-      await setDoc(d, data, { merge: true });
-      setCloudProjectId(id);
-      setLastSavedAt(new Date().toISOString());
-      notifySuccess('Updated cloud project');
-      await fetchCloudProjects();
-    } catch (e) {
-      console.error(e);
-      notifyError('Failed updating project');
-    } finally {
-      setNetworkLoading(false);
-    }
-  }
-  async function handleSignOut() {
-    try {
-      await signOut(auth);
-      notifySuccess('Signed out!');
-    } catch (e) {
-      notifyError('Sign out failed');
-    }
-  }
-  // Export STL for current frame
-  function handleExportSTL() {
-    if (!plot) return;
-    exportSTL(plot, voxelSizeMm, 'pixelart.stl');
-    notifySuccess('STL file exported!');
-  }
-
-  // Export Blender script for current frame
-  function handleExportBlender() {
-    const blenderScript = generateBlenderScript();
-    if (!blenderScript) {
-      notifyError('No plot data');
-      return;
-    }
-    try {
-      const blob = new Blob([blenderScript], { type: 'text/x-python;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'pixel_script.py';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      notifySuccess('Blender script downloaded');
-    } catch (e) {
-      notifyError('Download failed');
-    }
-  }
-  // Cell size state for zoom (optional, default 20)
-  const [cellSize, setCellSize] = useState<number>(20);
-  // Dummy state to force re-render
-  const [, forceUpdate] = useState(0);
-
-  // All state selectors (declare only once, at the top)
-  const frames = useGlobalStore((s) => s.frames);
-  const currentFrame = useGlobalStore((s) => s.currentFrame);
-  const addFrame = useGlobalStore((s) => s.addFrame);
-  const removeFrame = useGlobalStore((s) => s.removeFrame);
   const setCurrentFrame = useGlobalStore((s) => s.setCurrentFrame);
-  const setWidth = useGlobalStore((s) => (s as any).setWidth);
-  const setHeight = useGlobalStore((s) => (s as any).setHeight);
-  const width = useGlobalStore((s) => (s as any).width);
-  const height = useGlobalStore((s) => (s as any).height);
+  const setSize = useGlobalStore((s) => s.setSize);
+  const size = useGlobalStore((s) => s.size);
   const currColor = useGlobalStore((s) => s.currColor);
   const setCurrColor = useGlobalStore((s) => s.setCurrColor);
   const currentPixel = useGlobalStore((s) => s.currentPixel);
@@ -150,125 +74,34 @@ function App() {
   const setUndoStack = useGlobalStore((s) => s.setUndoStack);
   const redoStack = useGlobalStore((s) => s.redoStack);
   const setRedoStack = useGlobalStore((s) => s.setRedoStack);
-
-  // MenuBar event handler
-  useEffect(() => {
-    function handleMenuBarAction(e: Event) {
-      const custom = e as CustomEvent;
-      const action = custom.detail?.action;
-      switch (action) {
-        case 'clear':
-          handleClear(); break;
-        case 'undo':
-          undo(); break;
-        case 'redo':
-          redo(); break;
-        case 'save':
-          saveProject('save'); break;
-        case 'saveAs':
-          saveProject('saveAs'); break;
-        case 'open':
-          // Trigger file input for load
-          document.getElementById('file-load-input')?.click();
-          break;
-        case 'export':
-          exportPNG(); break;
-        case 'exportSTL':
-          handleExportSTL(); break;
-        case 'exportBlender':
-          handleExportBlender(); break;
-        case 'cut':
-          copyToClipboard();
-          handleClear();
-          break;
-        case 'copy':
-          copyToClipboard();
-          break;
-        case 'paste':
-          pasteFromClipboard();
-          break;
-        case 'zoomIn':
-          setCellSize((s: number) => Math.min(s + 2, 60));
-          break;
-        case 'zoomOut':
-          setCellSize((s: number) => Math.max(s - 2, 6));
-          break;
-        case 'resetZoom':
-          setCellSize(20);
-          break;
-        case 'Flip Horizontal':
-          setPlot(flipHorizontal(plot));
-          notifySuccess('Flipped horizontally');
-          break;
-        case 'Flip Vertical':
-          setPlot(flipVertical(plot));
-          notifySuccess('Flipped vertically');
-          break;
-        case 'Rotate Left':
-          setPlot(rotateLeft(plot));
-          notifySuccess('Rotated left');
-          break;
-        case 'Rotate Right':
-          setPlot(rotateRight(plot));
-          notifySuccess('Rotated right');
-          break;
-        default:
-          break;
-      }
-    }
-    window.addEventListener('pixel-app-action', handleMenuBarAction);
-    return () => window.removeEventListener('pixel-app-action', handleMenuBarAction);
-  }, [plot, width, height]);
-
-  // Clipboard helpers
-  function copyToClipboard() {
-    if (!plot) return;
-    navigator.clipboard.writeText(JSON.stringify(plot));
-    notifySuccess('Copied to clipboard');
-  }
-  function pasteFromClipboard() {
-    navigator.clipboard.readText().then(txt => {
-      try {
-        const arr = JSON.parse(txt);
-        if (Array.isArray(arr) && Array.isArray(arr[0])) {
-          setPlot(arr);
-          notifySuccess('Pasted from clipboard');
-        }
-      } catch { notifyError('Clipboard data invalid'); }
-    });
-  }
-
-  // Firestore persistence helpers
   const [networkLoading, setNetworkLoading] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
-  async function saveProjectToFirestore(saveAs = false) {
-    if (!user) { notifyError('Sign in to save to cloud'); return; }
-    if (!plot) { notifyError('No plot to save'); return; }
+  async function handleSignIn() {
+    try {
+      await signInWithPopup(auth, provider);
+      toast.success('Signed in!');
+    } catch (e) {
+      toast.error('Sign in failed');
+    }
+  }
+
+  async function updateCloudProject(id: string | null) {
+    if (!user) { toast.error('Sign in to update projects'); return; }
+    if (!id) { toast.error('No project selected'); return; }
+    if (!plot) { toast.error('No plot to save'); return; }
     setNetworkLoading(true);
     try {
-      const ref = collection(db, 'users', user.uid, 'projects');
-      const data = { title: title || 'Untitled', plot, voxelSizeMm, width, height, updatedAt: serverTimestamp() };
-      if (!saveAs && cloudProjectId) {
-        // update existing
-        const d = doc(db, 'users', user.uid, 'projects', cloudProjectId);
-        await setDoc(d, data, { merge: true });
-        // set local last-saved timestamp
-        setLastSavedAt(new Date().toISOString());
-        notifySuccess('Updated project in Firestore');
-      } else {
-        // create new doc (Save As)
-        const docRef = await addDoc(ref, data);
-        try { localStorage.setItem('lastCloudProjectId', docRef.id); } catch (e) { /* ignore */ }
-        setCloudProjectId(docRef.id);
-        // also set alias
-        try { (useGlobalStore.getState() as any).setLastSavedCloudId(docRef.id); } catch (e) { }
-        setLastSavedAt(new Date().toISOString());
-        notifySuccess(saveAs ? 'Saved (Save As) to Firestore' : 'Saved project to Firestore');
-      }
+      const d = doc(db, 'users', user.uid, 'projects', id as string);
+      const data = { title: title || 'Untitled', plot, voxelSizeMm, size, updatedAt: serverTimestamp() };
+      await setDoc(d, data, { merge: true });
+      setCloudProjectId(id);
+      setLastSavedAt(new Date().toISOString());
+      toast.success('Updated cloud project');
+      await fetchCloudProjects();
     } catch (e) {
       console.error(e);
-      notifyError('Failed saving to cloud');
+      toast.error('Failed updating project');
     } finally {
       setNetworkLoading(false);
     }
@@ -280,11 +113,9 @@ function App() {
   const [selectedCloudId, setSelectedCloudId] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState<boolean>(false);
 
   async function fetchCloudProjects() {
-    if (!user) { notifyError('Sign in to load cloud projects'); return; }
+    if (!user) { toast.error('Sign in to load cloud projects'); return; }
     setNetworkLoading(true);
     try {
       const ref = collection(db, 'users', user.uid, 'projects');
@@ -306,7 +137,7 @@ function App() {
       }
     } catch (e) {
       console.error(e);
-      notifyError('Failed fetching cloud projects');
+      toast.error('Failed fetching cloud projects');
     } finally {
       setNetworkLoading(false);
     }
@@ -317,23 +148,13 @@ function App() {
     setCloudModalOpen(true);
   }
 
-  useEffect(() => {
-    function handleToggleMobile() {
-      setMobileMenuOpen(o => !o);
-    }
-    window.addEventListener('pixel-app-toggle-mobile-menu', handleToggleMobile as EventListener);
-    function onResize() { setIsMobile(window.innerWidth < 600); }
-    onResize();
-    window.addEventListener('resize', onResize);
-    return () => { window.removeEventListener('pixel-app-toggle-mobile-menu', handleToggleMobile as EventListener); window.removeEventListener('resize', onResize); }
-  }, []);
+
 
   async function loadCloudProject(p: any) {
     if (!p) return;
     if (p.plot) {
       setPlot(p.plot);
-      if (typeof p.width === 'number') setWidth(p.width);
-      if (typeof p.height === 'number') setHeight(p.height);
+      if (p.size) setSize(p.size);
       if (typeof p.voxelSizeMm === 'number') setVoxelSizeMm(p.voxelSizeMm);
       if (p.title) setTitle(p.title);
       setCloudProjectId(p.id);
@@ -346,7 +167,7 @@ function App() {
           setLastSavedAt(new Date().toISOString());
         }
       } else setLastSavedAt(new Date().toISOString());
-      notifySuccess('Loaded project from Firestore');
+      toast.success('Loaded project from Firestore');
     }
   }
 
@@ -359,17 +180,17 @@ function App() {
   async function performDeleteCloudProject() {
     const id = deleteTargetId;
     if (!id) return;
-    if (!user) { notifyError('Sign in to delete cloud projects'); setDeleteConfirmOpen(false); return; }
+    if (!user) { toast.error('Sign in to delete cloud projects'); setDeleteConfirmOpen(false); return; }
     setNetworkLoading(true);
     try {
       await deleteDoc(doc(db, 'users', user.uid, 'projects', id));
       // refresh list
       await fetchCloudProjects();
       if (cloudProjectId === id) setCloudProjectId(null);
-      notifySuccess('Deleted cloud project');
+      toast.success('Deleted cloud project');
     } catch (e) {
       console.error(e);
-      notifyError('Failed deleting project');
+      toast.error('Failed deleting project');
     } finally {
       setNetworkLoading(false);
       setDeleteConfirmOpen(false);
@@ -384,7 +205,7 @@ function App() {
   function applySelectionAsCurrent(id: string | null) {
     setCloudProjectId(id);
     setCloudModalOpen(false);
-    notifyInfo('Selected cloud project set for updates');
+    toast.info('Selected cloud project set for updates');
   }
   useEffect(() => {
     function handleEscape(e: KeyboardEvent) {
@@ -469,8 +290,8 @@ function App() {
       // Prefer measuring the plot container so desktop layout doesn't grow indefinitely
       const plotEl = document.querySelector('.plot') as HTMLElement | null;
       const containerWidth = plotEl ? Math.max(160, plotEl.clientWidth - margin) : Math.max(160, window.innerWidth - margin);
-      const cols = plot ? (plot[0]?.length ?? (width || 16)) : (width || 16);
-      const candidate = Math.floor(containerWidth / cols);
+      const count = size || 16;
+      const candidate = Math.floor(containerWidth / count);
       // clamp to reasonable touch sizes
       const clamped = Math.max(6, Math.min(candidate, 48));
       setCellSize(clamped);
@@ -489,7 +310,7 @@ function App() {
       window.removeEventListener('resize', calculateCellSize);
       if (ro && plotEl) ro.unobserve(plotEl);
     };
-  }, [width, height, plot]);
+  }, [size]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -510,17 +331,17 @@ function App() {
 
 
   function handleClear() {
-    // Clear the current board using the current width x height
-    const dsMap: string[][] = Array.from({ length: (height as number) }, () => Array.from({ length: (width as number) }, () => "transparent"));
+    // Clear the current board using the current size (pixel count)
+    const dsMap: string[][] = Array.from({ length: size }, () => Array.from({ length: size }, () => "transparent"));
     setPlot(dsMap);
-    notifySuccess("Board cleared");
+    toast.success("Board cleared");
   }
   function floodFill(startX: number, startY: number, color?: string) {
     const fillColor = color ?? currColor
     if (!plot) return
     const newPlot = utilFloodFill(plot, startX, startY, fillColor)
     setPlot(newPlot)
-    notifySuccess('Fill applied')
+    toast.success('Fill applied')
   }
 
   // (handleFill removed — not used)
@@ -634,8 +455,8 @@ function App() {
   ];
   useEffect(() => {
     if (!plot) {
-      const rows = multiplier((height as number) || 16, 10)
-      const cols = multiplier((width as number) || 16, 10)
+      const rows = multiplier(size, 10)
+      const cols = multiplier(size, 10)
       let dsMap: string[][] = Array.from({ length: rows }, () => Array.from({ length: cols }, () => "hsl(0deg 0% 100% / 16%)"));
       setPlot(dsMap)
     }
@@ -780,11 +601,11 @@ function App() {
   // Save project JSON to file and localStorage
   function saveProject(mode: 'save' | 'saveAs' = 'save') {
     if (!plot) {
-      notifyError('No plot to save')
+      toast.error('No plot to save')
       return
     }
     try {
-      const data = { plot, voxelSizeMm, title: title || 'Untitled', width, height }
+      const data = { plot, voxelSizeMm, title: title || 'Untitled', size }
       const txt = JSON.stringify(data)
       const blob = new Blob([txt], { type: 'application/json;charset=utf-8' })
       const url = URL.createObjectURL(blob)
@@ -804,9 +625,9 @@ function App() {
       URL.revokeObjectURL(url)
       // also save to localStorage
       try { localStorage.setItem('pixel-app-save', txt); } catch (e) { /* ignore */ }
-      notifySuccess('Project saved')
+      toast.success('Project saved')
     } catch (e) {
-      notifyError('Save failed')
+      toast.error('Save failed')
     }
   }
 
@@ -815,7 +636,7 @@ function App() {
   // Export PNG image of the plot (scale pxPerCell)
   function exportPNG() {
     if (!plot) {
-      notifyError('No plot to export')
+      toast.error('No plot to export')
       return
     }
     const rows = plot.length
@@ -826,7 +647,7 @@ function App() {
     cvs.height = rows * pxPerCell
     const ctx = cvs.getContext('2d')
     if (!ctx) {
-      notifyError('Export failed')
+      toast.error('Export failed')
       return
     }
     ctx.clearRect(0, 0, cvs.width, cvs.height)
@@ -839,7 +660,7 @@ function App() {
       }
     }
     cvs.toBlob((blob) => {
-      if (!blob) { notifyError('Export failed'); return }
+      if (!blob) { toast.error('Export failed'); return }
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -848,7 +669,7 @@ function App() {
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-      notifySuccess('PNG exported')
+      toast.success('PNG exported')
     })
   }
 
@@ -860,10 +681,7 @@ function App() {
         const parsed = JSON.parse(s)
         if (parsed.plot) setPlot(parsed.plot)
         if (typeof parsed.voxelSizeMm === 'number') setVoxelSizeMm(parsed.voxelSizeMm)
-        if (typeof parsed.width === 'number') setWidth(parsed.width)
-        if (typeof parsed.height === 'number') setHeight(parsed.height)
-        // Backwards compatibility for legacy `size` value
-        if (typeof parsed.size === 'number') { setWidth(parsed.size); setHeight(parsed.size); }
+        if (typeof parsed.size === 'number') setSize(parsed.size)
         if (typeof parsed.title === 'string') setTitle(parsed.title)
       }
     } catch (e) { }
@@ -877,7 +695,20 @@ function App() {
     <div className="App">
       <ProgressBar loading={networkLoading} />
 
-      {/* Notifications removed — using console-based shims. */}
+      <ToastContainer
+        toastClassName="toastify-theme-pixel"
+        className="toastify-theme-pixel"
+        position="bottom-right"
+        autoClose={1000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="dark"
+      />
       <header>
         <MenuBar user={user} onSignIn={handleSignIn} onSignOut={handleSignOut} isSaved={!!cloudProjectId} lastSavedAt={lastSavedAt} networkLoading={networkLoading} />
       </header>
@@ -905,16 +736,15 @@ function App() {
           >
             Frames
           </button>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 24 }}>
-            <div>
-              <div style={{ fontSize: 12, color: '#cfcfcf' }}>Width</div>
-              <input type="number" min={2} max={256} value={width as number} onChange={e => setWidth(Number(e.target.value))} className="pixel-count-input" />
-            </div>
-            <div>
-              <div style={{ fontSize: 12, color: '#cfcfcf' }}>Height</div>
-              <input type="number" min={2} max={256} value={height as number} onChange={e => setHeight(Number(e.target.value))} className="pixel-count-input" />
-            </div>
-          </div>
+          <span style={{ marginLeft: 24, fontWeight: 500 }}>Pixel Count:</span>
+          <input
+            type="number"
+            min={2}
+            max={64}
+            value={size}
+            onChange={e => setSize(Number(e.target.value))}
+            className="pixel-count-input"
+          />
           <span style={{ marginLeft: 12, fontWeight: 500 }}>Title:</span>
           <input
             type="text"

@@ -11,9 +11,10 @@
 export function exportSTL(plot: string[][], voxelSizeMm: number, fileName = 'model.stl') {
   // Only export filled voxels
   const triangles: string[] = [];
-  const size = plot.length;
-  for (let x = 0; x < size; x++) {
-    for (let y = 0; y < size; y++) {
+  const rows = plot.length;
+  const cols = plot[0]?.length ?? 0;
+  for (let x = 0; x < rows; x++) {
+    for (let y = 0; y < cols; y++) {
       if (plot[x][y] && plot[x][y] !== 'transparent') {
         // Each voxel is a cube at (x, y, 0)
         triangles.push(...cubeTriangles(x * voxelSizeMm, y * voxelSizeMm, 0, voxelSizeMm));

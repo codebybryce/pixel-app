@@ -8,8 +8,10 @@ export interface Pixel {
 }
 
 export interface GlobalStore {
-  size: number;
-  setSize: (size: number) => void;
+  width: number;
+  height: number;
+  setWidth: (w: number) => void;
+  setHeight: (h: number) => void;
   currColor: string;
   setCurrColor: (color: string) => void;
   currentPixel?: Pixel;
@@ -46,19 +48,42 @@ export interface GlobalStore {
   setUndoStack: (stack: string[][][]) => void;
   redoStack: string[][][];
   setRedoStack: (stack: string[][][]) => void;
+  // Cloud project id for updating an existing Firestore doc
+  cloudProjectId: string | null;
+  setCloudProjectId: (id: string | null) => void;
+  // Save-as flow: remember lastSavedCloudId if desired (alias to cloudProjectId)
+  lastSavedCloudId: string | null;
+  setLastSavedCloudId: (id: string | null) => void;
+  // Optional project title for persistence
+  title: string;
+  setTitle: (title: string) => void;
 }
 
 export const useGlobalStore = create<GlobalStore>()((set, get) => ({
-  size: 20,
-  setSize: (size) => {
-    set({ size });
-    // When size changes, resize current frame, preserving as much data as possible
-    const { currentFrame, frames } = get();
+  width: 20,
+  height: 20,
+  setWidth: (width) => {
+    set({ width });
+    const { currentFrame, frames, height: h } = get();
     const oldPlot = frames[currentFrame] || [];
     const oldRows = oldPlot.length;
     const oldCols = oldPlot[0]?.length || 0;
-    const newPlot = Array.from({ length: size }, (_, i) =>
-      Array.from({ length: size }, (_, j) =>
+    const newPlot = Array.from({ length: h }, (_, i) =>
+      Array.from({ length: width }, (_, j) =>
+        (i < oldRows && j < oldCols) ? oldPlot[i][j] : "transparent"
+      )
+    );
+    const newFrames = frames.map((f, i) => i === currentFrame ? newPlot : f);
+    set({ frames: newFrames });
+  },
+  setHeight: (height) => {
+    set({ height });
+    const { currentFrame, frames, width: w } = get();
+    const oldPlot = frames[currentFrame] || [];
+    const oldRows = oldPlot.length;
+    const oldCols = oldPlot[0]?.length || 0;
+    const newPlot = Array.from({ length: height }, (_, i) =>
+      Array.from({ length: w }, (_, j) =>
         (i < oldRows && j < oldCols) ? oldPlot[i][j] : "transparent"
       )
     );
@@ -72,8 +97,8 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
   frames: [Array.from({ length: 20 }, () => Array.from({ length: 20 }, () => "transparent"))],
   currentFrame: 0,
   addFrame: () => {
-    const { frames, size } = get();
-    const newFrame = Array.from({ length: size }, () => Array.from({ length: size }, () => "transparent"));
+    const { frames, width, height } = get();
+    const newFrame = Array.from({ length: height }, () => Array.from({ length: width }, () => "transparent"));
     set({ frames: [...frames, newFrame], currentFrame: frames.length });
   },
   removeFrame: (idx) => {
@@ -123,4 +148,13 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
   setUndoStack: (undoStack) => set({ undoStack }),
   redoStack: [],
   setRedoStack: (redoStack) => set({ redoStack }),
+  // Cloud project id for updating an existing Firestore doc
+  cloudProjectId: null,
+  setCloudProjectId: (id: string | null) => set({ cloudProjectId: id }),
+  // Save-as flow: remember lastSavedCloudId if desired (alias to cloudProjectId)
+  lastSavedCloudId: null,
+  setLastSavedCloudId: (id: string | null) => set({ lastSavedCloudId: id }),
+  // Optional project title for persistence
+  title: 'Untitled',
+  setTitle: (title: string) => set({ title }),
 }));
