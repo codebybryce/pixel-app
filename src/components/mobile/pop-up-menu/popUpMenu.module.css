@@ -1,0 +1,36 @@
+.popUpMenu {
+  position: absolute;
+
+  .iconContainer {
+    height: 100%;
+    /* width: 100%; */
+    border-radius: 50%;
+    /* From https://css.glass */
+    background: rgba(255, 255, 255, 0.49);
+    /* border-radius: 50%; */
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.62);
+    /* padding: 2rem; */
+    margin: 2rem;
+    display: flex;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    ::after {
+      content: "";
+      /* or some text you want to display */
+      position: absolute;
+      top: 20px;
+
+    }
+
+    .modal {
+      position: absolute;
+    }
+  }
+
+}

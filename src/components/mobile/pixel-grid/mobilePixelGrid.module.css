@@ -1,0 +1,49 @@
+.container {
+  overflow-y: scroll;
+  overflow-x: scroll;
+  width: 90%;
+  margin: 1rem auto;
+  max-width: 600px;
+  height: 100%
+}
+
+.mobilePixelGrid {
+  overflow: scroll;
+  display: grid;
+  aspect-ratio: 1 / 1;
+  max-width: 600px;
+  width: 90%;
+  /* background-color: var(--bg-color); */
+  transition: background-color 0.3s ease;
+  gap: 4px;
+
+  /* padding: .5rem; */
+
+  .pixel {
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    border: none;
+    border-radius: 0px;
+    font-size: 1.2rem;
+    cursor: pointer;
+
+    /* The shadow values are automatically pulled from the active theme variables */
+    box-shadow:
+      inset -2px -2px 2px 0 var(--neumorph-shadow-dark),
+      inset 2px 2px 2px 0 var(--neumorph-shadow-light);
+
+    transition: all 0.2s ease;
+
+    &:hover {
+      box-shadow:
+        2px 2px 2px 0 var(--neumorph-shadow-dark),
+        -2px -2px -2px 0 var(--neumorph-shadow-light);
+      transform: scale(1.02);
+      /* -4px -4px 8px 0 var(--shadow-light); */
+      transition: all 0.2s ease;
+      outline: 1px solid var(--accent-color);
+      background-color: none
+    }
+  }
+
+}

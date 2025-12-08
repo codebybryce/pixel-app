@@ -1,0 +1,151 @@
+.mobileToolBar {
+  height: 6rem;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr .25fr;
+  grid-template-rows: 1fr;
+  grid-column-gap: 20px;
+  grid-row-gap: 0px;
+  max-width: 600px;
+  display: fixed;
+  padding: 8px;
+  position: fixed;
+  bottom: 30px;
+
+
+
+  .tools {
+    /* border: 2px solid var(--accent-color); */
+    box-shadow: var(--outset-morph-light), var(--outset-morph-dark);
+    border-radius: 30px;
+
+  }
+
+  .colors {
+    /* border: 2px solid var(--accent-color); */
+    box-shadow: var(--outset-morph-light), var(--outset-morph-dark);
+    border-radius: 30px;
+
+  }
+
+
+}
+
+
+.mobileToolContainer {
+  background: rgb(54 57 59 / 57%);
+  backdrop-filter: blur(2px);
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 2rem 1rem;
+  display: grid;
+  width: 100vw;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr 1fr 1fr;
+  gap: 8px;
+  grid-auto-flow: row;
+  justify-items: center;
+  border-top: 2px solid #6ca680;
+  grid-template-areas:
+    "clear undo redo copy"
+    "rotateLeft moveUp rotateR paste"
+    "moveLeft moveDown moveRight colorPick"
+    "line circle square selectTool"
+    "colorSelect colorSelect colorSelect colorSelect";
+}
+
+.clear {
+  grid-area: clear;
+}
+
+.undo {
+  grid-area: undo;
+}
+
+.redo {
+  grid-area: redo;
+}
+
+.copy {
+  grid-area: copy;
+}
+
+.paste {
+  grid-area: paste;
+}
+
+.rotateLeft {
+  grid-area: rotateLeft;
+}
+
+.rotateR {
+  grid-area: rotateR;
+}
+
+.moveUp {
+  grid-area: moveUp;
+}
+
+.moveDown {
+  grid-area: moveDown;
+}
+
+.moveLeft {
+  grid-area: moveLeft;
+}
+
+.moveRight {
+  grid-area: moveRight;
+}
+
+.line {
+  grid-area: line;
+}
+
+.circle {
+  grid-area: circle;
+}
+
+.square {
+  grid-area: square;
+}
+
+.colorPick {
+  grid-area: colorPick;
+}
+
+.selectTool {
+  grid-area: selectTool;
+}
+
+.colorSelect {
+  grid-area: colorSelect;
+}
+
+.closed {
+  transform: translateY(110%);
+  transition: transform 200ms ease-in-out;
+  pointer-events: none;
+}
+
+.handle {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  height: 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+  z-index: 60;
+  touch-action: none;
+}
+
+/* when toolbar open keep handle visible a little */
+.mobileToolContainer {
+  /* ensure handle sits above toolbar */
+  z-index: 50;
+}

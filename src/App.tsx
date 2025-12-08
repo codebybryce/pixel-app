@@ -13,13 +13,18 @@ import ColorModal from './components/ColorModal';
 import MenuBar from './components/MenuBar';
 import FramesModal from './components/FramesModal';
 import { useGlobalStore } from "./store/useGlobalStore";
+import { allColors } from './utils/colors';
+import { IconContext } from 'react-icons';
+import ColorSlider from './components/mobile/color-menu/ColorSlider';
 
-
+import MobileApp from './components/mobile/MobileApp';
+import useMediaType from './hooks/useMediaType';
 
 
 function App() {
   // Firebase Auth state
   const [user, setUser] = useState<User | null>(null);
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, setUser);
     return () => unsub();
@@ -109,6 +114,14 @@ function App() {
   const setUndoStack = useGlobalStore((s) => s.setUndoStack);
   const redoStack = useGlobalStore((s) => s.redoStack);
   const setRedoStack = useGlobalStore((s) => s.setRedoStack);
+  const selectionRegion = useGlobalStore((s) => s.selectionRegion);
+  const setSelectionRegion = useGlobalStore((s) => s.setSelectionRegion);
+  const clipboard = useGlobalStore((s) => s.clipboard);
+  const setClipboard = useGlobalStore((s) => s.setClipboard);
+  const pasteOffsetRow = useGlobalStore((s) => (s as any).pasteOffsetRow);
+  const pasteOffsetCol = useGlobalStore((s) => (s as any).pasteOffsetCol);
+  const setPasteOffset = useGlobalStore((s) => (s as any).setPasteOffset);
+
 
   // MenuBar event handler
   useEffect(() => {
@@ -137,14 +150,32 @@ function App() {
         case 'exportBlender':
           handleExportBlender(); break;
         case 'cut':
-          copyToClipboard();
-          handleClear();
+          if (selectionRegion) {
+            pushUndo();
+            copySelectionToClipboard(selectionRegion);
+            clearSelectionRegion(selectionRegion);
+            setSelectionRegion(null);
+            toast.success('Cut selection');
+          } else {
+            copyToClipboard();
+            handleClear();
+          }
           break;
         case 'copy':
-          copyToClipboard();
+          if (selectionRegion) {
+            copySelectionToClipboard(selectionRegion);
+            toast.success('Copied selection');
+          } else {
+            copyToClipboard();
+          }
           break;
         case 'paste':
-          pasteFromClipboard();
+          if (clipboard) {
+            setTool('paste');
+            toast.info('Paste mode: click destination');
+          } else {
+            pasteFromClipboard();
+          }
           break;
         case 'zoomIn':
           setCellSize((s: number) => Math.min(s + 2, 60));
@@ -171,6 +202,23 @@ function App() {
           setPlot(rotateRight(plot));
           toast.success('Rotated right');
           break;
+        case 'moveUp':
+          // Nudge paste offset up by 1 (rows decrease)
+          setPasteOffset((pasteOffsetRow || 0) - 1, pasteOffsetCol || 0);
+          toast.info('Paste offset moved up');
+          break;
+        case 'moveDown':
+          setPasteOffset((pasteOffsetRow || 0) + 1, pasteOffsetCol || 0);
+          toast.info('Paste offset moved down');
+          break;
+        case 'moveLeft':
+          setPasteOffset(pasteOffsetRow || 0, (pasteOffsetCol || 0) - 1);
+          toast.info('Paste offset moved left');
+          break;
+        case 'moveRight':
+          setPasteOffset(pasteOffsetRow || 0, (pasteOffsetCol || 0) + 1);
+          toast.info('Paste offset moved right');
+          break;
         default:
           break;
       }
@@ -179,11 +227,49 @@ function App() {
     return () => window.removeEventListener('pixel-app-action', handleMenuBarAction);
   }, [plot, size]);
 
+  // Listen for mobile pixel clicks dispatched by MobilePixelGrid
+  useEffect(() => {
+    function handleMobilePixelClick(e: Event) {
+      const custom = e as CustomEvent;
+      const x = custom.detail?.x;
+      const y = custom.detail?.y;
+      if (typeof x === 'number' && typeof y === 'number') {
+        handleSetPixel({ x, y });
+      }
+    }
+    window.addEventListener('pixel-app-click', handleMobilePixelClick);
+    return () => window.removeEventListener('pixel-app-click', handleMobilePixelClick);
+  }, [tool, toolStart, plot, clipboard, pasteOffsetRow, pasteOffsetCol]);
+
   // Clipboard helpers
   function copyToClipboard() {
     if (!plot) return;
     navigator.clipboard.writeText(JSON.stringify(plot));
     toast.success('Copied to clipboard');
+  }
+  function copySelectionToClipboard(region: { x1: number; y1: number; x2: number; y2: number }) {
+    if (!plot) return;
+    const { x1, y1, x2, y2 } = region;
+    const data: string[][] = [];
+    for (let i = x1; i <= x2; i++) {
+      const row: string[] = [];
+      for (let j = y1; j <= y2; j++) {
+        row.push(plot[i][j]);
+      }
+      data.push(row);
+    }
+    setClipboard(data);
+    try { navigator.clipboard.writeText(JSON.stringify(data)); } catch { /* ignore */ }
+  }
+  function clearSelectionRegion(region: { x1: number; y1: number; x2: number; y2: number }) {
+    if (!plot) return;
+    const newPlot = plot.map(r => r.slice());
+    for (let i = region.x1; i <= region.x2; i++) {
+      for (let j = region.y1; j <= region.y2; j++) {
+        newPlot[i][j] = 'transparent';
+      }
+    }
+    setPlot(newPlot);
   }
   function pasteFromClipboard() {
     navigator.clipboard.readText().then(txt => {
@@ -299,6 +385,7 @@ function App() {
   // extended palette
   // Added more colors for a richer palette
   // Basic + extended web colors + some nice extras
+
   let colors: string[] = [
     // Pantone-inspired swatch book: vibrant, pastel, and neutral
     // Vibrant primaries
@@ -400,8 +487,9 @@ function App() {
   ];
   useEffect(() => {
     if (!plot) {
-      const rows = multiplier(size, 10)
-      const cols = multiplier(size, 10)
+
+      const rows = multiplier(1, 8)
+      const cols = multiplier(1, 8)
       let dsMap: string[][] = Array.from({ length: rows }, () => Array.from({ length: cols }, () => "hsl(0deg 0% 100% / 16%)"));
       setPlot(dsMap)
     }
@@ -475,6 +563,40 @@ function App() {
         if (tool === 'rectangle') drawRectangle(toolStart, params, currColor || 'transparent')
         setToolStart(null)
         setPreviewPixels([])
+      }
+    } else if (tool === 'select') {
+      if (!toolStart) {
+        setToolStart(params);
+        setPreviewPixels([]);
+      } else {
+        const x1 = Math.min(toolStart.x, params.x);
+        const y1 = Math.min(toolStart.y, params.y);
+        const x2 = Math.max(toolStart.x, params.x);
+        const y2 = Math.max(toolStart.y, params.y);
+        setSelectionRegion({ x1, y1, x2, y2 });
+        setToolStart(null);
+        toast.success('Selection set');
+      }
+    } else if (tool === 'paste') {
+      if (clipboard && plot) {
+        pushUndo();
+        const newPlot = plot.map(r => r.slice());
+        for (let i = 0; i < clipboard.length; i++) {
+          for (let j = 0; j < clipboard[i].length; j++) {
+            const tx = params.x + (pasteOffsetRow || 0) + i;
+            const ty = params.y + (pasteOffsetCol || 0) + j;
+            if (newPlot[tx] && typeof newPlot[tx][ty] !== 'undefined') {
+              newPlot[tx][ty] = clipboard[i][j];
+            }
+          }
+        }
+        setPlot(newPlot);
+        setTool('pencil');
+        // reset paste offset after applying
+        setPasteOffset(0, 0);
+        toast.success('Pasted selection');
+      } else {
+        toast.error('Nothing to paste');
       }
     }
   }
@@ -848,12 +970,26 @@ if created:
 
   const [framesMenuOpen, setFramesMenuOpen] = useState(false)
 
+  const miniMap = () => {
+    return <div className='mini-plot'>
+      {plot?.map((val: string[], i: number) => {
+        return <div key={i}>{val.map((v: string, j: number) => <div onClick={() => handleSetPixel({ x: i, y: j })} className="pixel" key={j} style={{ backgroundColor: v, width: 1, height: 1 }} />)}</div>
+      })}
+    </div>
+  }
 
 
+
+
+  const layoutType = useMediaType()
+
+  if (layoutType === "mobile") return <MobileApp />
   return (
-    <div className="App">
+    <IconContext.Provider value={{ className: 'react-icons' }}>
+      <MenuBar />
+      <div className="App h-dvh" >
 
-      <ToastContainer
+        {/* <ToastContainer
         toastClassName="toastify-theme-pixel"
         className="toastify-theme-pixel"
         position="bottom-right"
@@ -866,10 +1002,10 @@ if created:
         draggable
         pauseOnHover
         theme="dark"
-      />
-      <header>
-        <MenuBar />
-        <div style={{ position: 'absolute', top: 18, right: 24, zIndex: 100 }}>
+      /> */}
+
+
+        {/* <div style={{ position: 'absolute', top: 18, right: 24, zIndex: 100 }}>
           {user ? (
             <>
               <span style={{ color: '#ffb300', marginRight: 12 }}>Hi, {user.displayName || user.email}</span>
@@ -878,106 +1014,110 @@ if created:
           ) : (
             <button onClick={handleSignIn} style={{ background: '#23272e', color: '#ffb300', border: '1px solid #444', borderRadius: 6, padding: '6px 18px', cursor: 'pointer', fontWeight: 600 }}>Sign In</button>
           )}
-        </div>
-      </header>
-      {/* <div className='mini-plot'>
-        {plot?.map((val: string[], i: number) => {
-          return <div key={i}>{val.map((v: string, j: number) => <div onClick={() => handleSetPixel({ x: i, y: j })} className="pixel" key={j} style={{ backgroundColor: v, width: 1, height: 1 }} />)}</div>
-        })}
-      </div> */}
-      <div style={{ marginTop: '80px' }}>
-        {/* Frame controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, justifyContent: 'center' }}>
-          <button
-            style={{
-              fontWeight: 600,
-              background: '#23272e',
-              color: '#ffb300',
-              border: '1px solid #444',
-              borderRadius: 6,
-              padding: '8px 18px',
-              cursor: 'pointer',
-              fontSize: 16
-            }}
-            onClick={() => setFramesMenuOpen(true)}
-          >
-            Frames
-          </button>
-          <span style={{ marginLeft: 24, fontWeight: 500 }}>Pixel Count:</span>
-          <input
-            type="number"
-            min={2}
-            max={64}
-            value={size}
-            onChange={e => setSize(Number(e.target.value))}
-            className="pixel-count-input"
-          />
-        </div>
-        <FramesModal
-          open={framesMenuOpen}
-          onClose={() => setFramesMenuOpen(false)}
-          frames={frames}
-          currentFrame={currentFrame}
-          setCurrentFrame={setCurrentFrame}
-          addFrame={addFrame}
-          removeFrame={removeFrame}
-        />
-        <div
-          className='plot'
-          onMouseEnter={() => setShowToolCursor(true)}
-          onMouseLeave={() => setShowToolCursor(false)}
-        >
-          {plot?.map((val: string[], i: number) => {
-            return <div key={i}>{val.map((v: string, j: number) => {
-              const isPreview = previewPixels.some(p => p.x === i && p.y === j)
-              return (
-                <div
-                  onMouseEnter={() => { handleMouseEnterPixel({ x: i, y: j }); if (toolStart && (tool === 'line' || tool === 'circle' || tool === 'rectangle')) handlePreview({ x: i, y: j }) }}
-                  onMouseLeave={handleMouseLeavePixel}
-                  onClick={() => handleSetPixel({ x: i, y: j })}
-                  className={`pixel${isPreview ? ' preview' : ''}`}
-                  key={j}
-                  style={{ backgroundColor: isPreview ? currColor : v, opacity: isPreview ? 0.5 : 1, width: cellSize, height: cellSize }} />
-              )
-            })}</div>
-          })}
-        </div>
-      </div>
-      {showToolCursor && (
-        <div
-          id="cursor"
-          className="custom-cursor filled-circle"
-          style={{
-            position: 'fixed',
-            // Offset: 10px right, 10px down from pointer
-            left: `${mousePos.x + 10}px`,
-            top: `${mousePos.y + 10}px`,
-            pointerEvents: 'none',
-            transform: 'translate(-50%, -50%)',
-            zIndex: 9999,
-          }}
-        >
-          <div className="cursor-color-indicator small" style={{ background: currColor }} />
-        </div>
-      )}
-      <div id="picker" className='color'></div>
-      <ToolBar
-        setColorMenuOpen={setColorMenuOpen}
-        handleClear={handleClear}
-        tool={tool}
-        setTool={setTool}
-        undo={undo}
-        redo={redo}
-      />
-      <ColorModal
-        open={colorMenuOpen}
-        onClose={() => setColorMenuOpen(false)}
-        colors={colors}
-        currColor={currColor}
-        setCurrColor={setCurrColor}
-      />
-    </div>
+        </div> */}
 
+
+        <div style={{ marginTop: '80px' }}>
+          <button>Tools</button>
+          {/* Frame controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, justifyContent: 'center' }}>
+            <button
+              style={{
+                fontWeight: 600,
+                background: '#23272e',
+                color: '#ffb300',
+                border: '1px solid #444',
+                borderRadius: 6,
+                padding: '8px 18px',
+                cursor: 'pointer',
+                fontSize: 16
+              }}
+              onClick={() => setFramesMenuOpen(true)}
+            >
+              Frames
+            </button>
+            <span style={{ marginLeft: 24, fontWeight: 500 }}>Pixel Count:</span>
+            <input
+              type="number"
+              min={2}
+              max={64}
+              value={size}
+              onChange={e => setSize(Number(e.target.value))}
+              className="w-24 text-center py-2 px-4 border-0 focus:outline-none"
+            />
+          </div>
+          <FramesModal
+            open={framesMenuOpen}
+            onClose={() => setFramesMenuOpen(false)}
+            frames={frames}
+            currentFrame={currentFrame}
+            setCurrentFrame={setCurrentFrame}
+            addFrame={addFrame}
+            removeFrame={removeFrame}
+          />
+          <div className='overflow-scroll'>
+            <div
+              className='flex bg-[#63667e96] p-2'
+              // className='flex w-100 bg-wite-400 rounded-md bg--padding backdrop- backdrop-blur-lg bg-opacity-0 border border-gray-100'
+              onMouseEnter={() => setShowToolCursor(true)}
+              onMouseLeave={() => setShowToolCursor(false)}
+            >
+              {plot?.map((val: string[], i: number) => {
+                return <div key={i}>{val.map((v: string, j: number) => {
+                  const isPreview = previewPixels.some(p => p.x === i && p.y === j);
+                  const inSelection = selectionRegion && i >= selectionRegion.x1 && i <= selectionRegion.x2 && j >= selectionRegion.y1 && j <= selectionRegion.y2;
+                  return (
+                    <div
+                      onMouseEnter={() => { handleMouseEnterPixel({ x: i, y: j }); if (toolStart && (tool === 'line' || tool === 'circle' || tool === 'rectangle')) handlePreview({ x: i, y: j }) }}
+                      onMouseLeave={handleMouseLeavePixel}
+                      onClick={() => handleSetPixel({ x: i, y: j })}
+                      // className={`pixel${isPreview ? ' preview' : ''}`}
+                      key={j}
+                      className={`border-1 border-[#ffffff5e] w-6 h-6 hover:bg-[${currColor}]`}
+
+                      style={{ backgroundColor: isPreview ? currColor : v, opacity: isPreview ? 0.5 : 1 }}
+                    />)
+                })}</div>
+              })}
+            </div>
+          </div>
+        </div>
+        {showToolCursor && (
+          <div
+            id="cursor"
+            className="rounded-full h-10px w-10px"
+            style={{
+              position: 'fixed',
+              // Offset: 10px right, 10px down from pointer
+              left: `${mousePos.x + 15}px`,
+              top: `${mousePos.y + 25}px`,
+              pointerEvents: 'none',
+              transform: 'translate(-50%, -50%)',
+              zIndex: 9999,
+              backgroundColor: `${currColor}`
+            }}
+          >
+            {/* <div className="cursor-color-indicator small" style={{ background: currColor }} /> */}
+          </div>
+        )}
+        <div id="picker" className='color'></div>
+        <ToolBar
+          setColorMenuOpen={setColorMenuOpen}
+          handleClear={handleClear}
+          tool={tool}
+          setTool={setTool}
+          undo={undo}
+          redo={redo}
+        />
+        <ColorModal
+          open={colorMenuOpen}
+          onClose={() => setColorMenuOpen(false)}
+          currColor={currColor}
+          setCurrColor={setCurrColor}
+        />
+      </div>
+      <ColorSlider />
+    </IconContext.Provider>
 
   )
 }
@@ -985,3 +1125,4 @@ if created:
 
 
 export default App
+

@@ -1,0 +1,27 @@
+.toolContainer {
+  position: fixed;
+
+  bottom: 20px;
+  right: 20px;
+
+  .dial {
+    height: 150px;
+    width: 150px;
+    /* border: 2px solid black; */
+    border-radius: 50%;
+    box-shadow: var(--outset-morph-light), var(--outset-morph-dark);
+    position: relative;
+  }
+
+  .dimple {
+    position: absolute;
+    height: 40px;
+    width: 40px;
+    border-radius: 50%;
+    background-color: var(--bg-color);
+    box-shadow: inset -4px -4px 10px 0 var(--neumorph-shadow-light),
+      inset 4px 4px 10px 0 var(--neumorph-shadow-dark);
+    transform: translate(-50%, -50%);
+
+  }
+}

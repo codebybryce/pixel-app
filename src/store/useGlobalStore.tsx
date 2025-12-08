@@ -1,13 +1,14 @@
 import { create } from "zustand";
 
-export type Tool = 'pencil' | 'fill' | 'eraser' | 'line' | 'circle' | 'rectangle' | 'picker';
-
+export type Tool = 'pencil' | 'fill' | 'eraser' | 'line' | 'circle' | 'rectangle' | 'picker' | 'select' | 'paste';
 export interface Pixel {
   x: number;
   y: number;
 }
-
+const currentEnv = window.location.href.includes('localhost')
 export interface GlobalStore {
+  [key: string]: any;
+  inDev: boolean;
   size: number;
   setSize: (size: number) => void;
   currColor: string;
@@ -26,29 +27,25 @@ export interface GlobalStore {
   setPlot: (plot: string[][] | undefined) => void;
   colorMenuOpen: boolean;
   setColorMenuOpen: (open: boolean) => void;
-  mousePos: Pixel;
-  setMousePos: (pos: Pixel) => void;
-  showToolCursor: boolean;
-  setShowToolCursor: (show: boolean) => void;
-  shiftButtonEngaged: boolean;
-  setShiftButtonEngaged: (engaged: boolean) => void;
-  pixelMultiplier: number;
-  setPixelMultiplier: (mult: number) => void;
-  voxelSizeMm: number;
-  setVoxelSizeMm: (mm: number) => void;
-  tool: Tool;
-  setTool: (tool: Tool) => void;
-  toolStart: Pixel | null;
-  setToolStart: (start: Pixel | null) => void;
-  previewPixels: Pixel[];
-  setPreviewPixels: (pixels: Pixel[]) => void;
-  undoStack: string[][][];
-  setUndoStack: (stack: string[][][]) => void;
-  redoStack: string[][][];
-  setRedoStack: (stack: string[][][]) => void;
+
+  // clipboard & edit helpers
+  clipboard: string[][] | null;
+  setClipboard: (clipboard: string[][] | null) => void;
+  copy: () => void;
+  paste: (offsetX?: number, offsetY?: number) => void;
+  flipHorizontal: () => void;
+  flipVertical: () => void;
+  // mobile paste nudging
+  pasteOffsetRow?: number;
+  pasteOffsetCol?: number;
+  setPasteOffset?: (row: number, col: number) => void;
+  // mobile toolbar visibility
+  mobileToolOpen?: boolean;
+  setMobileToolOpen?: (open: boolean) => void;
 }
 
 export const useGlobalStore = create<GlobalStore>()((set, get) => ({
+  inDev: currentEnv,
   size: 20,
   setSize: (size) => {
     set({ size });
@@ -123,4 +120,69 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
   setUndoStack: (undoStack) => set({ undoStack }),
   redoStack: [],
   setRedoStack: (redoStack) => set({ redoStack }),
+  selectionRegion: null,
+  setSelectionRegion: (selectionRegion) => set({ selectionRegion }),
+  clipboard: null,
+  setClipboard: (clipboard) => set({ clipboard }),
+
+  // Paste offset for mobile paste nudge (row, col)
+  pasteOffsetRow: 0,
+  pasteOffsetCol: 0,
+  setPasteOffset: (pasteOffsetRow: number, pasteOffsetCol: number) => set({ pasteOffsetRow, pasteOffsetCol }),
+
+  toolBoxOpen: false,
+  setToolBoxOpen: (toolBoxOpen) => set({ toolBoxOpen }),
+
+  // mobile toolbar visibility (for swipe open/close)
+  mobileToolOpen: true,
+  setMobileToolOpen: (mobileToolOpen: boolean) => set({ mobileToolOpen }),
+
+  // copy: clone the current frame into clipboard
+  copy: () => {
+    const store = get();
+    const plot = store.frames[store.currentFrame];
+    const clip = plot.map(row => row.slice());
+    set({ clipboard: clip });
+  },
+
+  // paste: overlay clipboard onto current frame at optional offsets (defaults to 0,0)
+  paste: (offsetX = 0, offsetY = 0) => {
+    const store = get();
+    const clip = store.clipboard;
+    if (!clip) return;
+    const frames = store.frames.map((f, idx) => idx === store.currentFrame ? f.map(r => r.slice()) : f);
+    const target = frames[store.currentFrame];
+    const height = Math.min(clip.length, target.length - offsetY);
+    for (let y = 0; y < height; y++) {
+      const row = clip[y];
+      const width = Math.min(row.length, target[0].length - offsetX);
+      for (let x = 0; x < width; x++) {
+        target[y + offsetY][x + offsetX] = row[x];
+      }
+    }
+    set({ frames });
+  },
+
+  // flipHorizontal: reverse each row (mirror horizontally) for current frame
+  flipHorizontal: () => {
+    const store = get();
+    const frames = store.frames.map((f, idx) => {
+      if (idx !== store.currentFrame) return f;
+      return f.map(row => row.slice().reverse());
+    });
+    set({ frames });
+  },
+
+  // flipVertical: reverse row order (mirror vertically) for current frame
+  flipVertical: () => {
+    const store = get();
+    const frames = store.frames.map((f, idx) => {
+      if (idx !== store.currentFrame) return f;
+      return f.slice().reverse().map(r => r.slice());
+    });
+    set({ frames });
+  },
+
+  isDarkmode: false,
+  setIsDarkMode: (theme) => set({ theme })
 }));

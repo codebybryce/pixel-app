@@ -24,3 +24,13 @@ dist-ssr
 *.sw?
 *.env
 .vercel
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+*storybook.log
+storybook-static
