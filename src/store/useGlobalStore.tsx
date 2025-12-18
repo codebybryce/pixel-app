@@ -8,8 +8,10 @@ export interface Pixel {
 }
 
 export interface GlobalStore {
-  size: number;
-  setSize: (size: number) => void;
+  width: number;
+  height: number;
+  setWidth: (w: number) => void;
+  setHeight: (h: number) => void;
   currColor: string;
   setCurrColor: (color: string) => void;
   currentPixel?: Pixel;
@@ -21,6 +23,7 @@ export interface GlobalStore {
   removeFrame: (idx: number) => void;
   setCurrentFrame: (idx: number) => void;
   setFramePlot: (plot: string[][]) => void;
+  setFrames: (frames: string[][][]) => void;
   // For backward compatibility
   plot?: string[][];
   setPlot: (plot: string[][] | undefined) => void;
@@ -46,24 +49,57 @@ export interface GlobalStore {
   setUndoStack: (stack: string[][][]) => void;
   redoStack: string[][][];
   setRedoStack: (stack: string[][][]) => void;
+  // Cloud project id for updating an existing Firestore doc
+  cloudProjectId: string | null;
+  setCloudProjectId: (id: string | null) => void;
+  // Save-as flow: remember lastSavedCloudId if desired (alias to cloudProjectId)
+  lastSavedCloudId: string | null;
+  setLastSavedCloudId: (id: string | null) => void;
+  // Optional project title for persistence
+  title: string;
+  setTitle: (title: string) => void;
 }
 
 export const useGlobalStore = create<GlobalStore>()((set, get) => ({
-  size: 20,
-  setSize: (size) => {
-    set({ size });
-    // When size changes, resize current frame, preserving as much data as possible
-    const { currentFrame, frames } = get();
+  width: 20,
+  height: 20,
+  setWidth: (width) => {
+    set({ width });
+    const { currentFrame, frames, height: h } = get();
     const oldPlot = frames[currentFrame] || [];
     const oldRows = oldPlot.length;
     const oldCols = oldPlot[0]?.length || 0;
-    const newPlot = Array.from({ length: size }, (_, i) =>
-      Array.from({ length: size }, (_, j) =>
+    const newPlot = Array.from({ length: h }, (_, i) =>
+      Array.from({ length: width }, (_, j) =>
         (i < oldRows && j < oldCols) ? oldPlot[i][j] : "transparent"
       )
     );
     const newFrames = frames.map((f, i) => i === currentFrame ? newPlot : f);
     set({ frames: newFrames });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
+  },
+  setHeight: (height) => {
+    set({ height });
+    const { currentFrame, frames, width: w } = get();
+    const oldPlot = frames[currentFrame] || [];
+    const oldRows = oldPlot.length;
+    const oldCols = oldPlot[0]?.length || 0;
+    const newPlot = Array.from({ length: height }, (_, i) =>
+      Array.from({ length: w }, (_, j) =>
+        (i < oldRows && j < oldCols) ? oldPlot[i][j] : "transparent"
+      )
+    );
+    const newFrames = frames.map((f, i) => i === currentFrame ? newPlot : f);
+    set({ frames: newFrames });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
   },
   currColor: "",
   setCurrColor: (currColor) => set({ currColor }),
@@ -72,9 +108,14 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
   frames: [Array.from({ length: 20 }, () => Array.from({ length: 20 }, () => "transparent"))],
   currentFrame: 0,
   addFrame: () => {
-    const { frames, size } = get();
-    const newFrame = Array.from({ length: size }, () => Array.from({ length: size }, () => "transparent"));
+    const { frames, width, height } = get();
+    const newFrame = Array.from({ length: height }, () => Array.from({ length: width }, () => "transparent"));
     set({ frames: [...frames, newFrame], currentFrame: frames.length });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
   },
   removeFrame: (idx) => {
     const { frames, currentFrame } = get();
@@ -84,12 +125,37 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
     if (currentFrame > idx) newCurrent = currentFrame - 1;
     if (currentFrame === idx) newCurrent = Math.max(0, currentFrame - 1);
     set({ frames: newFrames, currentFrame: newCurrent });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
   },
-  setCurrentFrame: (idx) => set({ currentFrame: idx }),
+  setCurrentFrame: (idx) => {
+    set({ currentFrame: idx });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
+  },
+  setFrames: (frames) => {
+    set({ frames });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
+  },
   setFramePlot: (plot) => {
     const { frames, currentFrame } = get();
     const newFrames = frames.map((f, i) => i === currentFrame ? plot : f);
     set({ frames: newFrames });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
   },
   // For backward compatibility
   get plot() {
@@ -100,6 +166,11 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
     const { frames, currentFrame } = get();
     const newFrames = frames.map((f, i) => i === currentFrame ? plot : f);
     set({ frames: newFrames });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
   },
   colorMenuOpen: false,
   setColorMenuOpen: (colorMenuOpen) => set({ colorMenuOpen }),
@@ -123,4 +194,13 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
   setUndoStack: (undoStack) => set({ undoStack }),
   redoStack: [],
   setRedoStack: (redoStack) => set({ redoStack }),
+  // Cloud project id for updating an existing Firestore doc
+  cloudProjectId: null,
+  setCloudProjectId: (id: string | null) => set({ cloudProjectId: id }),
+  // Save-as flow: remember lastSavedCloudId if desired (alias to cloudProjectId)
+  lastSavedCloudId: null,
+  setLastSavedCloudId: (id: string | null) => set({ lastSavedCloudId: id }),
+  // Optional project title for persistence
+  title: 'Untitled',
+  setTitle: (title: string) => set({ title }),
 }));

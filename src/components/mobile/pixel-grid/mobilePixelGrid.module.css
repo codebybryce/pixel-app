@@ -1,0 +1,26 @@
+.mobilePixelGrid {
+  display: grid;
+  gap: 4px;
+  width: min(calc(100vw - 24px), 720px);
+  margin: 8px auto;
+  touch-action: manipulation;
+}
+
+.mobilePixelGrid .pixel {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 2px;
+  border: 1px solid #23272e;
+  background: transparent;
+  padding: 0;
+}
+
+.mobilePixelGrid .pixel:active {
+  transform: scale(0.98);
+}
+
+@media (max-width: 540px) {
+  .mobilePixelGrid {
+    gap: 2px;
+  }
+}

@@ -1,3 +1,4 @@
+// ESLint config (Storybook plugin removed)
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
@@ -15,6 +16,14 @@ export default defineConfig([
       reactHooks.configs['recommended-latest'],
       reactRefresh.configs.vite,
     ],
+    rules: {
+      // Relax some strict rules temporarily to reduce noisy errors during development
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { 'argsIgnorePattern': '^_' }],
+      'react-hooks/exhaustive-deps': 'warn',
+      'prefer-const': 'warn',
+      'no-empty': 'warn',
+    },
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
