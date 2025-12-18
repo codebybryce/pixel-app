@@ -23,6 +23,7 @@ export interface GlobalStore {
   removeFrame: (idx: number) => void;
   setCurrentFrame: (idx: number) => void;
   setFramePlot: (plot: string[][]) => void;
+  setFrames: (frames: string[][][]) => void;
   // For backward compatibility
   plot?: string[][];
   setPlot: (plot: string[][] | undefined) => void;
@@ -75,6 +76,11 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
     );
     const newFrames = frames.map((f, i) => i === currentFrame ? newPlot : f);
     set({ frames: newFrames });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
   },
   setHeight: (height) => {
     set({ height });
@@ -89,6 +95,11 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
     );
     const newFrames = frames.map((f, i) => i === currentFrame ? newPlot : f);
     set({ frames: newFrames });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
   },
   currColor: "",
   setCurrColor: (currColor) => set({ currColor }),
@@ -100,6 +111,11 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
     const { frames, width, height } = get();
     const newFrame = Array.from({ length: height }, () => Array.from({ length: width }, () => "transparent"));
     set({ frames: [...frames, newFrame], currentFrame: frames.length });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
   },
   removeFrame: (idx) => {
     const { frames, currentFrame } = get();
@@ -109,12 +125,37 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
     if (currentFrame > idx) newCurrent = currentFrame - 1;
     if (currentFrame === idx) newCurrent = Math.max(0, currentFrame - 1);
     set({ frames: newFrames, currentFrame: newCurrent });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
   },
-  setCurrentFrame: (idx) => set({ currentFrame: idx }),
+  setCurrentFrame: (idx) => {
+    set({ currentFrame: idx });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
+  },
+  setFrames: (frames) => {
+    set({ frames });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
+  },
   setFramePlot: (plot) => {
     const { frames, currentFrame } = get();
     const newFrames = frames.map((f, i) => i === currentFrame ? plot : f);
     set({ frames: newFrames });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
   },
   // For backward compatibility
   get plot() {
@@ -125,6 +166,11 @@ export const useGlobalStore = create<GlobalStore>()((set, get) => ({
     const { frames, currentFrame } = get();
     const newFrames = frames.map((f, i) => i === currentFrame ? plot : f);
     set({ frames: newFrames });
+    try {
+      const s = get();
+      const data = { frames: s.frames, currentFrame: s.currentFrame, voxelSizeMm: s.voxelSizeMm, width: s.width, height: s.height, title: s.title };
+      localStorage.setItem('pixel-app-save', JSON.stringify(data));
+    } catch (e) { }
   },
   colorMenuOpen: false,
   setColorMenuOpen: (colorMenuOpen) => set({ colorMenuOpen }),

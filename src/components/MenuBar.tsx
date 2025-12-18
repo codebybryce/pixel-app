@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { MENU_ITEMS, FILE_MENU, EDIT_MENU, VIEW_MENU, HELP_MENU, IMAGE_MENU } from '../utils/constants';
-
+import { MdMenu } from "react-icons/md";
 // Helper to dispatch custom events for App-level actions
 function triggerAppAction(action: string, detail?: any) {
     window.dispatchEvent(new CustomEvent('pixel-app-action', { detail: { action, ...detail } }));
@@ -34,7 +34,7 @@ function handleMenuAction(menu: string, item: string) {
     }
     // View menu
     if (menu === 'Image') {
-        if (item === '') triggerAppAction('zoomIn');
+        if (item === 'Zoom In') triggerAppAction('zoomIn');
         if (item === 'Zoom Out') triggerAppAction('zoomOut');
         if (item === 'Reset Zoom') triggerAppAction('resetZoom');
     }
@@ -89,12 +89,10 @@ export default function MenuBar({ user, onSignIn, onSignOut, isSaved, lastSavedA
 
     return (
         <div className="menu-bar">
-            <img src="/logo.png" alt="Logo" className="logo" style={{ height: '3rem' }} />
             <button className="hamburger" aria-label="Open menu" title="Open menu" onClick={toggleMobile}>
-                <span />
-                <span />
-                <span />
+                <MdMenu />
             </button>
+            <img src="/logo.png" alt="Logo" className="logo" style={{ height: '3rem' }} />
 
             <div className="menu-desktop">
                 {MENU_ITEMS.map((v: string) =>
@@ -125,11 +123,11 @@ export default function MenuBar({ user, onSignIn, onSignOut, isSaved, lastSavedA
                 </div>
                 {user ? (
                     <>
-                        <span style={{ color: '#ffb300' }}>Hi, {user.displayName || user.email}</span>
-                        <button onClick={onSignOut} className="menu-btn" title="Sign Out">Sign Out</button>
+                        {/* <span style={{ color: '#ffb300' }}>Hi, {user.displayName || user.email}</span> */}
+                        <button onClick={onSignOut} className="status-button" title="Sign Out">Sign Out</button>
                     </>
                 ) : (
-                    <button onClick={onSignIn} className="menu-btn" title="Sign In">Sign In</button>
+                    <button onClick={onSignIn} className="status-button" title="Sign In">Sign In</button>
                 )}
             </div>
 

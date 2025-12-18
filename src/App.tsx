@@ -15,6 +15,9 @@ import ConfirmationModal from './components/ConfirmationModal';
 import FramesModal from './components/FramesModal';
 import ProgressBar from './components/ProgressBar';
 import MobileEditorLayout from './components/MobileEditorLayout';
+import { HiOutlineAdjustments } from "react-icons/hi";
+
+
 import { useGlobalStore } from "./store/useGlobalStore";
 import {
   multiplier,
@@ -78,8 +81,9 @@ function App() {
   }
   // Export STL for current frame
   function handleExportSTL() {
-    if (!plot) return;
-    exportSTL(plot, voxelSizeMm, 'pixelart.stl');
+    if (!frames || frames.length === 0) return;
+    // Export all frames stacked as Z layers so the model is solid
+    exportSTL(frames, voxelSizeMm, 'pixelart.stl');
     notifySuccess('STL file exported!');
   }
 
@@ -116,6 +120,7 @@ function App() {
   const addFrame = useGlobalStore((s) => s.addFrame);
   const removeFrame = useGlobalStore((s) => s.removeFrame);
   const setCurrentFrame = useGlobalStore((s) => s.setCurrentFrame);
+  const setFrames = useGlobalStore((s) => (s as any).setFrames);
   const setWidth = useGlobalStore((s) => (s as any).setWidth);
   const setHeight = useGlobalStore((s) => (s as any).setHeight);
   const width = useGlobalStore((s) => (s as any).width);
@@ -634,8 +639,8 @@ function App() {
   ];
   useEffect(() => {
     if (!plot) {
-      const rows = multiplier((height as number) || 16, 10)
-      const cols = multiplier((width as number) || 16, 10)
+      const rows = multiplier((height as number) || 8, 10)
+      const cols = multiplier((width as number) || 8, 10)
       let dsMap: string[][] = Array.from({ length: rows }, () => Array.from({ length: cols }, () => "hsl(0deg 0% 100% / 16%)"));
       setPlot(dsMap)
     }
@@ -859,6 +864,10 @@ function App() {
       if (s) {
         const parsed = JSON.parse(s)
         if (parsed.plot) setPlot(parsed.plot)
+        if (Array.isArray(parsed.frames)) {
+          try { setFrames(parsed.frames); } catch (e) { /* ignore */ }
+          if (typeof parsed.currentFrame === 'number') setCurrentFrame(parsed.currentFrame);
+        }
         if (typeof parsed.voxelSizeMm === 'number') setVoxelSizeMm(parsed.voxelSizeMm)
         if (typeof parsed.width === 'number') setWidth(parsed.width)
         if (typeof parsed.height === 'number') setHeight(parsed.height)
@@ -871,6 +880,7 @@ function App() {
 
   const [framesMenuOpen, setFramesMenuOpen] = useState(false)
 
+  const [isGridAdjustMenuOpen, setIsGridAdjustMenuOpen] = useState(false)
 
 
   return (
@@ -881,6 +891,55 @@ function App() {
       <header>
         <MenuBar user={user} onSignIn={handleSignIn} onSignOut={handleSignOut} isSaved={!!cloudProjectId} lastSavedAt={lastSavedAt} networkLoading={networkLoading} />
       </header>
+      <ColorModal
+        open={isGridAdjustMenuOpen}
+        onClose={() => setIsGridAdjustMenuOpen(false)}
+      >
+        <div className='frame-settings'>
+
+          <h3 className="modal-title">
+            Project Settings
+          </h3>
+          <div className="frame-size">
+            <div className="size-param">
+              <label>
+                Width
+              </label>
+              <input id="width" type="number" min={1} max={256} value={width as number} onChange={e => setWidth(Number(e.target.value))} />
+            </div>
+            <div className="size-param">
+              <label>
+                Height
+              </label>
+              <input id="height" type="number" min={1} max={256} value={height as number} onChange={e => setHeight(Number(e.target.value))} />
+            </div>
+          </div>
+
+          <div className="frame-size">
+            <div className="size-param">
+              <label>
+                Title
+              </label>
+              <input
+                id="title"
+                type="text"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="Enter a title..."
+              // style={{ borderRadius: 6, border: '1px solid #444', background: '#23272e', color: '#f5f5f7' }}
+              />
+
+            </div>
+            <button>Save</button>
+          </div>
+
+          {/* <button disabled={networkLoading} onClick={() => saveProjectToFirestore(false)} style={{ background: '#23272e', color: '#ffb300', border: '1px solid #444', borderRadius: 6, padding: '8px 12px', cursor: networkLoading ? 'wait' : 'pointer', opacity: networkLoading ? 0.7 : 1 }}> {networkLoading ? 'Saving...' : 'Save to Cloud'}</button> */}
+          {/* <button disabled={networkLoading} onClick={() => saveProjectToFirestore(true)} style={{ background: '#23272e', color: '#f5f5f7', border: '1px solid #444', borderRadius: 6, padding: '8px 12px', cursor: networkLoading ? 'wait' : 'pointer', opacity: networkLoading ? 0.7 : 1 }}> {networkLoading ? 'Working...' : 'Save As'}</button> */}
+          {/* <button onClick={openCloudManager} style={{ background: '#23272e', color: '#f5f5f7', border: '1px solid #444', borderRadius: 6, padding: '8px 12px', cursor: 'pointer' }}>Cloud Manager</button> */}
+
+        </div>
+
+      </ColorModal>
       {/* Mobile layout handled by MobileEditorLayout component */}
       {/* <div className='mini-plot'>
         {plot?.map((val: string[], i: number) => {
@@ -888,8 +947,7 @@ function App() {
         })}
       </div> */}
       <main className="main-content">
-        {/* Frame controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, justifyContent: 'center' }}>
+        <div className="grid-adjust-tools">
           <button
             style={{
               fontWeight: 600,
@@ -905,28 +963,13 @@ function App() {
           >
             Frames
           </button>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 24 }}>
-            <div>
-              <div style={{ fontSize: 12, color: '#cfcfcf' }}>Width</div>
-              <input type="number" min={2} max={256} value={width as number} onChange={e => setWidth(Number(e.target.value))} className="pixel-count-input" />
-            </div>
-            <div>
-              <div style={{ fontSize: 12, color: '#cfcfcf' }}>Height</div>
-              <input type="number" min={2} max={256} value={height as number} onChange={e => setHeight(Number(e.target.value))} className="pixel-count-input" />
-            </div>
-          </div>
-          <span style={{ marginLeft: 12, fontWeight: 500 }}>Title:</span>
-          <input
-            type="text"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="Untitled"
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #444', background: '#23272e', color: '#f5f5f7' }}
-          />
-          <button disabled={networkLoading} onClick={() => saveProjectToFirestore(false)} style={{ background: '#23272e', color: '#ffb300', border: '1px solid #444', borderRadius: 6, padding: '8px 12px', cursor: networkLoading ? 'wait' : 'pointer', opacity: networkLoading ? 0.7 : 1 }}> {networkLoading ? 'Saving...' : 'Save to Cloud'}</button>
-          <button disabled={networkLoading} onClick={() => saveProjectToFirestore(true)} style={{ background: '#23272e', color: '#f5f5f7', border: '1px solid #444', borderRadius: 6, padding: '8px 12px', cursor: networkLoading ? 'wait' : 'pointer', opacity: networkLoading ? 0.7 : 1 }}> {networkLoading ? 'Working...' : 'Save As'}</button>
-          <button onClick={openCloudManager} style={{ background: '#23272e', color: '#f5f5f7', border: '1px solid #444', borderRadius: 6, padding: '8px 12px', cursor: 'pointer' }}>Cloud Manager</button>
+          <button className="icon-button-med">
+
+            <HiOutlineAdjustments onClick={() => setIsGridAdjustMenuOpen(true)} />
+          </button>
         </div>
+        {/* Frame controls */}
+
         <FramesModal
           open={framesMenuOpen}
           onClose={() => setFramesMenuOpen(false)}
@@ -994,11 +1037,11 @@ function App() {
           <div className="cursor-color-indicator small" style={{ background: currColor }} />
         </div>
       )}
-      {isMobile && (
+      {/* {isMobile && (
         <button aria-label="Open color picker" className="fab" onClick={() => setColorMenuOpen(true)} title="Color Picker">
           🎨
         </button>
-      )}
+      )} */}
       <div id="picker" className='color'></div>
       <ToolBar
         setColorMenuOpen={setColorMenuOpen}
@@ -1011,10 +1054,14 @@ function App() {
       <ColorModal
         open={colorMenuOpen}
         onClose={() => setColorMenuOpen(false)}
-        colors={colors}
-        currColor={currColor}
-        setCurrColor={setCurrColor}
-      />
+      >
+        <div className="color-modal-palette">
+          {colors.map((v, idx) => (
+            <div key={idx} className="color-choice" style={{ backgroundColor: v }} onClick={() => setCurrColor(v)} />
+          ))}
+        </div>
+
+      </ColorModal>
     </div>
 
 
