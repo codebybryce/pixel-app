@@ -1,5 +1,6 @@
-import React from 'react';
-import { toast, ToastOptions } from 'react-toastify';
+import { toast } from 'react-toastify';
+import type { ToastOptions } from 'react-toastify';
+import type { ReactNode } from 'react';
 
 const DEFAULT_OPTS: ToastOptions = {
   autoClose: 3000,
@@ -9,20 +10,20 @@ const DEFAULT_OPTS: ToastOptions = {
   theme: 'dark',
 };
 
-export function notifySuccess(message: React.ReactNode, opts?: ToastOptions) {
+export function notifySuccess(message: ReactNode, opts?: ToastOptions) {
   return toast.success(message, { ...DEFAULT_OPTS, ...opts });
 }
 
-export function notifyError(message: React.ReactNode, opts?: ToastOptions) {
+export function notifyError(message: ReactNode, opts?: ToastOptions) {
   return toast.error(message, { ...DEFAULT_OPTS, autoClose: 5000, ...opts });
 }
 
-export function notifyInfo(message: React.ReactNode, opts?: ToastOptions) {
+export function notifyInfo(message: ReactNode, opts?: ToastOptions) {
   return toast.info(message, { ...DEFAULT_OPTS, ...opts });
 }
 
-export function notifyWithUndo(message: React.ReactNode, onUndo: () => void, undoLabel = 'Undo', opts?: ToastOptions) {
-  let id: React.ReactText | undefined;
+export function notifyWithUndo(message: ReactNode, onUndo: () => void, undoLabel = 'Undo', opts?: ToastOptions) {
+  let id: string | number | undefined;
   const content = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
       <div style={{ flex: 1 }}>{message}</div>

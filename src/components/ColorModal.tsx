@@ -1,5 +1,4 @@
 import React from 'react';
-import { Circle } from '@uiw/react-color';
 
 interface ColorModalProps {
   open: boolean;

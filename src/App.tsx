@@ -1,5 +1,5 @@
 import { auth, provider, db } from './firebase';
-import { collection, addDoc, getDocs, serverTimestamp, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, serverTimestamp, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import CloudProjectsModal from './components/CloudProjectsModal';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
@@ -14,7 +14,7 @@ import MenuBar from './components/MenuBar';
 import ConfirmationModal from './components/ConfirmationModal';
 import FramesModal from './components/FramesModal';
 import ProgressBar from './components/ProgressBar';
-import MobileEditorLayout from './components/MobileEditorLayout';
+
 import { HiOutlineAdjustments } from "react-icons/hi";
 
 
@@ -247,37 +247,7 @@ function App() {
   const [networkLoading, setNetworkLoading] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
-  async function saveProjectToFirestore(saveAs = false) {
-    if (!user) { notifyError('Sign in to save to cloud'); return; }
-    if (!plot) { notifyError('No plot to save'); return; }
-    setNetworkLoading(true);
-    try {
-      const ref = collection(db, 'users', user.uid, 'projects');
-      const data = { title: title || 'Untitled', plot, voxelSizeMm, width, height, updatedAt: serverTimestamp() };
-      if (!saveAs && cloudProjectId) {
-        // update existing
-        const d = doc(db, 'users', user.uid, 'projects', cloudProjectId);
-        await setDoc(d, data, { merge: true });
-        // set local last-saved timestamp
-        setLastSavedAt(new Date().toISOString());
-        notifySuccess('Updated project in Firestore');
-      } else {
-        // create new doc (Save As)
-        const docRef = await addDoc(ref, data);
-        try { localStorage.setItem('lastCloudProjectId', docRef.id); } catch (e) { /* ignore */ }
-        setCloudProjectId(docRef.id);
-        // also set alias
-        try { (useGlobalStore.getState() as any).setLastSavedCloudId(docRef.id); } catch (e) { }
-        setLastSavedAt(new Date().toISOString());
-        notifySuccess(saveAs ? 'Saved (Save As) to Firestore' : 'Saved project to Firestore');
-      }
-    } catch (e) {
-      console.error(e);
-      notifyError('Failed saving to cloud');
-    } finally {
-      setNetworkLoading(false);
-    }
-  }
+  // Firestore save helpers removed (not currently used)
 
   // Cloud modal and project management
   const [cloudModalOpen, setCloudModalOpen] = useState(false);
@@ -285,8 +255,7 @@ function App() {
   const [selectedCloudId, setSelectedCloudId] = useState<string | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState<boolean>(false);
+
 
   async function fetchCloudProjects() {
     if (!user) { notifyError('Sign in to load cloud projects'); return; }
@@ -317,21 +286,9 @@ function App() {
     }
   }
 
-  async function openCloudManager() {
-    await fetchCloudProjects();
-    setCloudModalOpen(true);
-  }
+  // cloud manager trigger removed; use explicit controls to open `cloudModalOpen`
 
-  useEffect(() => {
-    function handleToggleMobile() {
-      setMobileMenuOpen(o => !o);
-    }
-    window.addEventListener('pixel-app-toggle-mobile-menu', handleToggleMobile as EventListener);
-    function onResize() { setIsMobile(window.innerWidth < 600); }
-    onResize();
-    window.addEventListener('resize', onResize);
-    return () => { window.removeEventListener('pixel-app-toggle-mobile-menu', handleToggleMobile as EventListener); window.removeEventListener('resize', onResize); }
-  }, []);
+  // Mobile toggle and resize listener removed (mobile state not used in this component)
 
   async function loadCloudProject(p: any) {
     if (!p) return;

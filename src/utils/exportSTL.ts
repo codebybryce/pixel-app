@@ -105,33 +105,7 @@ export function exportSTL(plotOrFrames: string[][] | string[][][], voxelSizeMm: 
 }
 
 // Return STL facet strings for a cube at (x, y, z) with given size
-function cubeTriangles(x: number, y: number, z: number, s: number): string[] {
-  // 8 vertices
-  const v = [
-    [x, y, z],
-    [x + s, y, z],
-    [x + s, y + s, z],
-    [x, y + s, z],
-    [x, y, z + s],
-    [x + s, y, z + s],
-    [x + s, y + s, z + s],
-    [x, y + s, z + s],
-  ];
-  // 12 triangles (2 per face)
-  const faces = [
-    [0, 1, 2, 3], // bottom
-    [4, 5, 6, 7], // top
-    [0, 1, 5, 4], // front
-    [2, 3, 7, 6], // back
-    [1, 2, 6, 5], // right
-    [3, 0, 4, 7], // left
-  ];
-  const tris: string[] = [];
-  for (const f of faces) {
-    tris.push(...quadToTriangles(v[f[0]], v[f[1]], v[f[2]], v[f[3]]));
-  }
-  return tris;
-}
+// Note: cubeTriangles helper removed because it's unused; quadToTriangles and facet helpers remain.
 
 // Convert quad to two STL triangles
 function quadToTriangles(a: number[], b: number[], c: number[], d: number[]): string[] {
